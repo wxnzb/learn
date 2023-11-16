@@ -168,3 +168,154 @@ int main()
   }
   return 0;
 }
+//lianxi
+//1
+#include<stdio.h>
+int main()
+{
+  long num;
+  long sum=0l;
+  int status;
+  printf("Please enter an interqer to be summed");
+  status=scanf("%d",&num);
+  while(status==1)
+  {
+    printf("Please enter an interqer to be summed");
+    sum+=num;
+    status=scanf("%ld",&num);
+  }
+  printf("Those interqers sum to %d",sum);
+  return 0;
+}
+//2
+#include<stdio.h>
+int main()
+{
+  char a=-100;
+  while(--a<0)
+  printf("hello\n");
+  return 0;
+}
+//3
+#include<stdio.h>
+int main()
+{
+  int a=0;
+  while(++a<3)//++a>>3,a++>>4,a++||++a>3时>>1
+  ;
+  printf("%d",a);
+  return 0;
+}
+//4
+#include<stdio.h>
+ #include<math.h>
+ int main()
+ {
+  const double ANSWER=3.14159;
+  double response;
+  scanf("%lf",&response);
+  while(fabs(response-ANSWER)>0.0001)
+  {
+    printf("Try again!");
+    scanf("%lf",&response);
+  }
+  printf("Close enough!");
+  return 0;
+ }
+// 5
+#include<stdio.h>
+int main()
+{
+  int num,sum;
+  _Bool n;
+   n=scanf("%d %d",&num,&sum);
+  printf("%d",n);
+  return 0;
+}
+//6
+#include<stdio.h>
+//lianxi
+//1
+#include<stdio.h>
+int main()
+{
+  long num;
+  long sum=0l;
+  int status;
+  printf("Please enter an interqer to be summed");
+  status=scanf("%d",&num);
+  while(status==1)
+  {
+    printf("Please enter an interqer to be summed");
+    sum+=num;
+    status=scanf("%ld",&num);
+  }
+  printf("Those interqers sum to %d",sum);
+  return 0;
+}
+//2
+#include<stdio.h>
+int main()
+{
+  char a=-100;
+  while(--a<0)
+  printf("hello\n");
+  return 0;
+}
+//3
+#include<stdio.h>
+int main()
+{
+  int a=0;
+  while(++a<3)//++a>>3,a++>>4,a++||++a>3时>>1
+  ;
+  printf("%d",a);
+  return 0;
+}
+//4
+#include<stdio.h>
+ #include<math.h>
+ int main()
+ {
+  const double ANSWER=3.14159;
+  double response;
+  scanf("%lf",&response);
+  while(fabs(response-ANSWER)>0.0001)
+  {
+    printf("Try again!");
+    scanf("%lf",&response);
+  }
+  printf("Close enough!");
+  return 0;
+ }
+// 5
+#include<stdio.h>
+int main()
+{
+  int num,sum;
+  _Bool n;
+   n=scanf("%d %d",&num,&sum);
+  printf("%d",n);
+  return 0;
+}
+//6
+#include<stdio.h>
+int main()
+{
+  int a=11,22;
+  int b=(11,22);
+  printf("%d %d",a,b);
+  return 0;
+}
+//7
+
+int main()
+{
+  int a=11,22;
+  int b=(11,22);
+  printf("%d %d",a,b);
+  return 0;
+}
+
+
+
