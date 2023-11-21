@@ -46,4 +46,14 @@ int main()
   printf("%d years later. Chuckie's account %f \n",year,chuckie);
   printf("%d years later.Chuckie's account is null",++year);
   return 0;
+#include<stdio.h>
+int main()
+{
+    char a[20];
+    char b[10]={'a','a','a',};
+    sprintf(a,"%s",b);
+    for(int i=0;i<20;i++)
+    {
+        printf("%c\n",a[i]);
+    }    
 }
