@@ -48,5 +48,18 @@ int main(int argc,char *argv[])
    }
    return 0;
 }
-
+//lianxi
+#include<stdio.h>
+#include<string.h>
+int main()
+{
+    char ch1[10]="qwer";
+    char ch2[4]="o";
+    char *ret=strstr(ch1,ch2);
+    if(ret==NULL)
+    printf("no");
+    else
+    printf("%s",ret);
+    return 0;
+}
 
