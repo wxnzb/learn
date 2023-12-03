@@ -62,4 +62,40 @@ int main()
     printf("%s",ret);
     return 0;
 }
+#include<stdio.h>
+#include<string.h>
+#include<ctype.h>
+void Printf(char *ch);
+void up(char *ch);
+int main(int argc,char *argv[])
+{
+    char c;
+    if(argc<2)
+    c='p';
+    else
+    c=argv[1][1];
+    char ch[256];
+    fgets(ch,256,stdin);
+    switch(c)
+    {
+        case  'p'  :
+        case  'P' :  
+        Printf(ch);
+        break;
+        case   'u':
+        case  'U':
+        up(ch);
+        break;
+        }
+        return 0;
+}
+void Printf(char *ch)
+{
+    printf("%s",ch);
+}
+void up(char *ch)
+{
+    while(*ch!=EOF&&*ch!='\0')
+    putchar(toupper(*ch++));
+}
 
