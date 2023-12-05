@@ -21,3 +21,9 @@ void strbuf_attach(struct strbuf *sb, void *str, size_t len, size_t alloc)
    sb->alloc=alloc;
    sb->buf=(char*)str;
 }
+//   释放 sb 结构体的内存（！！释放缓冲区，而不是整个结构体）
+void strbuf_release(struct strbuf *sb)
+{
+    free(sb->buf);
+    sb->buf=NULL;
+}
