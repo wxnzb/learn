@@ -14,3 +14,10 @@ void strbuf_init(struct strbuf *sb, size_t alloc)
     sb->len=0;
     sb->alloc=alloc;
 };
+//将字符串填充到 sb 中，长度为 len, 容量为 alloc
+void strbuf_attach(struct strbuf *sb, void *str, size_t len, size_t alloc)
+{
+   sb->len=len;
+   sb->alloc=alloc;
+   sb->buf=(char*)str;
+}
