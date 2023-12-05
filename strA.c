@@ -27,3 +27,30 @@ void strbuf_release(struct strbuf *sb)
     free(sb->buf);
     sb->buf=NULL;
 }
+//交换两个 strbuf
+void strbuf_swap(struct strbuf *a, struct strbuf *b)
+{
+//    int temp;
+//    temp=a->len;
+//    a->len=b->len;
+//    b->len=temp;
+//    temp=a->alloc;
+//    a->alloc=b->alloc;
+//    b->alloc=temp;
+//    char *tmp;
+//    tmp=a->buf;
+//    a->buf=b->buf;
+//    b->buf=tmp;
+//    a->buf=(char*)realloc(a->buf,(a->len+1)*sizeof(char));
+//    b->buf=(char*)realloc(b->buf,(b->len+1)*sizeof(char));
+//    if(a->buf==NULL||b->buf==NULL)
+//    {
+//     free(a->buf);
+//     free(b->buf);
+//     exit(EXIT_FAILURE);
+//    }
+    struct strbuf temp;
+    temp=*a;
+    *a=*b;
+    *b=temp;
+}
