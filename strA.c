@@ -54,3 +54,9 @@ void strbuf_swap(struct strbuf *a, struct strbuf *b)
     *a=*b;
     *b=temp;
 }
+//将 sb 中的原始内存取出，并将 sz 设置为其 alloc 大小 (不太理解)
+char *strbuf_detach(struct strbuf *sb, size_t *sz)
+{
+    *sz=sb->alloc;
+    return sb->buf;
+}
