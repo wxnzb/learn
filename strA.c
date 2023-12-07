@@ -60,3 +60,12 @@ char *strbuf_detach(struct strbuf *sb, size_t *sz)
     *sz=sb->alloc;
     return sb->buf;
 }
+//比较两个 strbuf 的内存是否相同(包括存的东西)
+int strbuf_cmp(const struct strbuf *first, const struct strbuf *second)
+{
+    // return first->len-second->len;
+    if(first->len==second->len)
+    return 0;
+    else
+    return 1;
+}
