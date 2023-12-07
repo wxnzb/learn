@@ -87,3 +87,4 @@ void strbuf_grow(struct strbuf *sb, size_t extra)
         exit(EXIT_FAILURE);
     }
 }
+
