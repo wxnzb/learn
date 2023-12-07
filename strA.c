@@ -69,3 +69,10 @@ int strbuf_cmp(const struct strbuf *first, const struct strbuf *second)
     else
     return 1;
 }
+//清空 sb
+void strbuf_reset(struct strbuf *sb)
+{
+   for(int i=0;i<sb->len;i++)
+   sb->buf[i]='\0';
+   sb->len=0;
+}
