@@ -41,3 +41,13 @@ void strbuf_addstr(struct strbuf *sb, const char *s)
     sb->buf[sb->len+n]='\0';
     sb->len=sb->len+n;
 }
+//向一个 sb 追加另一个 strbuf的数据
+void strbuf_addbuf(struct strbuf *sb, const struct strbuf *sb2)
+{
+    int n=strlen(sb2->buf);
+     strbuf_grow(sb,n);
+     for(int i=0;i<n;i++)
+    sb->buf[sb->len+i]=sb2->buf[i];
+    sb->buf[sb->len+n]='\0';
+    sb->len=sb->len+n;
+}
