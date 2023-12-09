@@ -7,7 +7,9 @@ void strbuf_grow(struct strbuf *sb, size_t extra)
     if(sb->buf==NULL)
     {
         exit(EXIT_FAILURE);
+    
     }
+}
 //向 sb 追加长度为 len 的数据 data
 void strbuf_add(struct strbuf *sb, const void *data, size_t len)
 {
@@ -19,4 +21,12 @@ void strbuf_add(struct strbuf *sb, const void *data, size_t len)
     }
     sb->buf[sb->len+len]='\0';
     sb->len=sb->len+len;
-}}
+}
+//向 sb 追加一个字符 
+void strbuf_addch(struct strbuf *sb, int c)
+{
+        strbuf_grow(sb,1);
+        sb->buf[sb->len]=(char)c;
+        sb->buf[sb->len+1]='\0';
+        sb->len=sb->len+1;
+}
