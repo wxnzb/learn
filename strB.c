@@ -30,3 +30,14 @@ void strbuf_addch(struct strbuf *sb, int c)
         sb->buf[sb->len+1]='\0';
         sb->len=sb->len+1;
 }
+//向 sb 追加一个字符串 s
+void strbuf_addstr(struct strbuf *sb, const char *s)
+{
+    int n=strlen(s);
+    strbuf_grow(sb,n);
+    // strcat(sb->buf,s);为啥我想出的第一个过不了！！
+    for(int i=0;i<n;i++)
+    sb->buf[sb->len+i]=s[i];
+    sb->buf[sb->len+n]='\0';
+    sb->len=sb->len+n;
+}
