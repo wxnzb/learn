@@ -51,3 +51,11 @@ void strbuf_addbuf(struct strbuf *sb, const struct strbuf *sb2)
     sb->buf[sb->len+n]='\0';
     sb->len=sb->len+n;
 }
+//设置 sb 的长度 len
+void strbuf_setlen(struct strbuf *sb, size_t len)
+{
+    sb->len=len;
+    strbuf_grow(sb,len+1);
+    sb->buf[len]='\0';
+}
+
