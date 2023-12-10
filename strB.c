@@ -64,4 +64,24 @@ size_t strbuf_avail(const struct strbuf *sb)
     int n=sb->alloc-sb->len-1;
     return n;
 }
+//8.向 sb 内存坐标为 pos 位置插入长度为 len 的数据 data。
+void strbuf_insert(struct strbuf *sb, size_t pos, const void *data, size_t len)
+{
+    strbuf_grow(sb,len);
+    int n=strlen(sb->buf);
+    int m=n-pos;
+    char ch[m];
+    int k=0;
+    for(int i=pos;i<n;i++)
+    {
+        ch[k]=sb->buf[i];
+        k++;
+    }
+    for(int i=0;i<len;i++)
+    sb->buf[pos+i]=((char*)data)[i];
+    for(int i=0;i<m;i++)
+    sb->buf[pos+len+i]=ch[i];
+    sb->buf[sb->len+len]='\0';
+    sb->len=sb->len+len;
+}
 
