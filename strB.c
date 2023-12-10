@@ -58,4 +58,10 @@ void strbuf_setlen(struct strbuf *sb, size_t len)
     strbuf_grow(sb,len+1);
     sb->buf[len]='\0';
 }
+//7.计算 sb 目前仍可以向后追加的字符串长度
+size_t strbuf_avail(const struct strbuf *sb)
+{
+    int n=sb->alloc-sb->len-1;
+    return n;
+}
 
