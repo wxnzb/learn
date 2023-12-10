@@ -13,4 +13,17 @@ void strbuf_ltrim(struct strbuf *sb)
    sb->buf[j]=sb->buf[j+n];
    sb->len=sb->len-n;
 }
+//2.去除 sb 缓冲区右端的所有 空格，tab, '\t'
+void strbuf_rtrim(struct strbuf *sb)
+{
+   int i=sb->len-1;
+   int n=0;
+   while(i>=0&&isspace((unsigned char)sb->buf[i]))
+   {
+    if(sb->buf[i]==' '||sb->buf[i]=='\t')
+     n++;
+     i--;
+   }
+  sb->len=sb->len-n;
+}
 
