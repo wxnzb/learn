@@ -26,4 +26,11 @@ void strbuf_rtrim(struct strbuf *sb)
     }
     sb->len = sb->len - n;
 }
-
+// 3.删除 sb 缓冲区从 pos 坐标长度为 len 的内容
+void strbuf_remove(struct strbuf *sb, size_t pos, size_t len)
+{
+    for (int i = pos; i + len < sb->len; i++)
+        sb->buf[i] = sb->buf[i + len];
+    sb->buf[sb->len - len] = '\0';
+    sb->len = sb->len - len;
+}
