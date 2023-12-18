@@ -43,3 +43,16 @@ bool strbuf_begin_judge(char *target_str, const char *str, int strnlen)
     else
         return false;
 }
+// 1.target_str : 目标字符串，begin : 开始下标，end 结束下标。len : target_buf的长度，参数不合法返回 NULL. 下标从0开始，[begin, end)区
+char *strbuf_get_mid_buf(char *target_buf, int begin, int end, int len)
+{
+    if (target_buf == NULL || begin < 0 || end < 0 || begin > end)
+        return NULL;
+    int n = end - begin;
+    char *ret = (char *)malloc((n + 1) * sizeof(char));
+    for (int i = 0; i < n; i++)
+        ret[i] = target_buf[begin + i];
+    ret[end - begin] = '\0';
+    return ret;
+}
+
