@@ -1,111 +1,43 @@
-#include <gtest/gtest.h>
+#include "list_lock.h"
 
-#include <thread>
-#include <vector>
-
-#include "test.h"
-
-TEST_F(ListLockTest, InitTest) {
-  ASSERT_TRUE(list_->head == nullptr) << "List is not initialized...";
-
-  ASSERT_EQ(pthread_mutex_trylock(&list_->mutex), 0)
-      << "Lock is not initialized";
-  pthread_mutex_unlock(&list_->mutex);
-
-  ASSERT_EQ(pthread_cond_signal(&list_->cond), 0) << "cond is not initialized";
+#include <stdio.h>
+#include <stdlib.h>
+//初始化 list_lock_t 结构。
+void listInit(list_lock_t* list) {
+  list->head = NULL;
+  pthread_mutex_init(&list->mutex, NULL);
+  pthread_cond_init(&list->cond, NULL);
 }
-
-TEST_F(ListLockTest, BasicTest) {
-  std::vector<std::thread> pro_threads;
-  std::vector<std::thread> con_threads;
-
-  for (int tid = 0; tid < 4; tid++) {
-    std::thread t(producer, list_.get(), tid);
-    pro_threads.push_back(std::move(t));
-  }
-
-  for (auto& t : pro_threads) {
-    t.join();
-  }
-
-  ASSERT_EQ(getListSize(list_.get()), 4);
-
-  for (int tid = 0; tid < 4; tid++) {
-    std::thread t(consumer, list_.get());
-    con_threads.push_back(std::move(t));
-  }
-
-  for (auto& t : con_threads) {
-    t.join();
-  }
-  ASSERT_EQ(getListSize(list_.get()), 0);
-  ASSERT_TRUE(list_->head == nullptr) << "Resources not released";
+//将生成的数据 value 放入 list 链表中，你可能需要为此分配一个堆区资源。
+void producer(list_lock_t* list, DataType value) {
+  pthread_mutex_lock(&list->mutex);
+  LinkList new = (LinkList)malloc(sizeof(LNode));
+  new->value = value;
+  new->next = list->head;
+  list->head = new;
+  pthread_cond_signal(&list->cond);
+  pthread_mutex_unlock(&list->mutex);
 }
-
-TEST_F(ListLockTest, MixedConcurrentTest) {
-  std::vector<std::thread> threads;
-  const int keys_per_thread = 10;
-  auto& list = list_;
-
-  for (int tid = 0; tid < 4; tid++) {
-    std::thread t([&list, tid] {
-      for (uint32_t i = 0; i < keys_per_thread; i++) {
-        producer(list.get(), tid * i);
-      }
-      for (uint32_t i = 0; i < keys_per_thread; i++) {
-        consumer(list.get());
-      }
-      for (uint32_t i = 0; i < keys_per_thread; i++) {
-        producer(list.get(), tid * i);
-      }
-    });
-    threads.push_back(std::move(t));
+//从 list 链表中消耗一个数据，并释放其占有的资源。
+void consumer(list_lock_t* list) {
+  pthread_mutex_lock(&list->mutex);
+  if (list->head == NULL) {
+    pthread_cond_wait(&list->cond, &list->mutex);
   }
-
-  for (auto& t : threads) {
-    t.join();
-  }
-
-  ASSERT_EQ(getListSize(list.get()), 4 * keys_per_thread);
-
-  std::thread conthread([&list] {
-    for (int i = 0; i < 4* keys_per_thread; i++) {
-      consumer(list.get());
-    }
-  });
-
-  conthread.join();
-
-  ASSERT_EQ(getListSize(list.get()), 0);
-  ASSERT_TRUE(list->head == nullptr);
+  LinkList cur = list->head;
+  list->head = cur->next;
+  free(cur);
+  pthread_mutex_unlock(&list->mutex);
 }
-
-TEST_F(ListLockTest, LongTimeTest) {
-  std::shared_ptr<std::atomic_bool> stop =
-      std::make_shared<std::atomic_bool>(false);
-  auto& list = list_;
-
-  std::thread pro_thread([&list, stop] {
-    while (!stop->load()) {
-      producer(list.get(), 1);
-      RandomSleep();
-    }
-  });
-
-  std::thread con_thread([&list, stop] {
-    while (!stop->load() || getListSize(list.get()) != 0) {
-      consumer(list.get());
-      RandomSleep();
-    }
-  });
-
-   std::this_thread::sleep_for(std::chrono::seconds(5));
-
-  stop->store(true);
-
-  pro_thread.join();
-  con_thread.join();
-
-  ASSERT_EQ(getListSize(list.get()), 0);
-  ASSERT_TRUE(list_->head == nullptr);
+//获取当前 list 中的资源个数，并返回该个数。
+int getListSize(list_lock_t* list) {
+  pthread_mutex_lock(&list->mutex);
+  int cnt = 0;
+  LinkList cur = list->head;
+  while (cur) {
+    cur = cur->next;
+    cnt++;
+  }
+  pthread_mutex_unlock(&list->mutex);
+  return cnt;
 }
