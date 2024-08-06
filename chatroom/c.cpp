@@ -1,16 +1,20 @@
 #include <iostream>
-#include <string>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <cstring>
 #include <pthread.h>
 #include <thread>
 #include <sys/socket.h>
 #include <mysql/mysql.h>
-#include <fstream>
-#include <filesystem>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/sendfile.h>
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/stat.h>
+#include <arpa/inet.h>
+
 #include "chat.h"
 #include "json.h"
 #define HOST "127.0.0.1"
@@ -111,8 +115,8 @@ private:
     void groupChat();       // 群聊
     void chatgroupRecord(); // 查看群聊记录
 
-    void sendFile(); // 发送文件
-                     //  void receiveFile();// 接收文件
+    int sendFile(); // 发送文件
+                    //  void receiveFile();// 接收文件
 };
 
 ChatClient::ChatClient(const char *server_ip, int port)
@@ -686,50 +690,6 @@ void *func(void *arg)
                 pthread_mutex_unlock(&lock_chatgrouprecord);
             }
         }
-        if (a == 6)
-        {
-            // if (msgback.state == USER_NOT_REGIST)
-            // {
-            //     std::cout << "用户不存在" << std::endl;
-            //     sendfile_f = 2;
-            // }
-            // if (msgback.state == NOTFRIEND)
-            // {
-            //     std::cout << "你们不是好友关系" << std::endl;
-            //     sendfile_f = 2;
-            // }
-            // if (msgback.state == GROUP_NOT_EXIST)
-            // {
-            //     std::cout << "群聊不存在" << std::endl;
-            //     sendfile_f = 2;
-            // }
-            // if (msgback.state == GROUPNOTPERSON)
-            // {
-            //     std::cout << "你不在群里面" << std::endl;
-            //     sendfile_f = 2;
-            // }
-
-            // pthread_mutex_lock(&lock_sendfile);
-            // pthread_cond_signal(&cond_sendfile); // 阻塞等待验证完成
-            // pthread_mutex_unlock(&lock_sendfile);
-            if (msgback.state == SENDFILE_OK)
-            {
-
-                // //     pthread_mutex_lock(&lock_sendfile);
-                // //     pthread_cond_signal(&cond_sendfile); // 阻塞等待验证完成
-                // //     pthread_mutex_unlock(&lock_sendfile);
-                continue; // 到底要不要呢？
-            }
-            if (msgback.state == OP_OK)
-            {
-                sendfile_f = 1;
-                std::cout << "发送成功" << std::endl;
-
-                pthread_mutex_lock(&lock_sendfileok);
-                pthread_cond_signal(&cond_sendfileok); // 阻塞等待验证完成
-                pthread_mutex_unlock(&lock_sendfileok);
-            }
-        }
     }
     return nullptr;
 }
@@ -1083,86 +1043,44 @@ void ChatClient::chatgroupRecord() // 查看群聊天记录
     pthread_cond_wait(&cond_chatgrouprecord, &lock_chatgrouprecord); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_chatgrouprecord);
 }
-void ChatClient::sendFile() // 发送文件
+int ChatClient::sendFile() // 发送文件
 {
-     sendfile_f = -1;
     struct protocol msg;
     msg.cmd = SENDFILE;
-    int choice;
-    std::cout << "你是要给好友发还是要给群发?1好友,2群组" << std::endl;
-    std::cin >> choice;
-    if (choice == 1)
-    {
-        std::cout << "Please input target id: ";
-        std::cin >> msg.id;
-    }
-    if (choice == 2)
-    {
-        std::cout << "Please input target group name: ";
-        std::cin >> msg.name;
-    }
-    std::cout << "Please input file name: ";
+    std::cout << "Enter the file name: ";
     std::cin >> msg.filename;
-    // 看文件路径是否存在
-    while (!std::filesystem::exists(msg.filename))
+    // 打开要发送的文件
+    int filefd = open(msg.filename.c_str(), O_RDONLY);
+    if (filefd < 0)
     {
-        std::cout << "File not exist, please input again: ";
-        std::cin >> msg.filename;
+        std::cerr << "File open failed." << std::endl;
+        close(sockfd);
+        return -1;
     }
-    std::ifstream f;    
-    //| std::ios::binary                                   // 定义一个输入文件流对象f，用于打开文件。
-    f.open(msg.filename, std::ios::in ); // 以二进制模式打开文件，并将其内容设置为输入文件流f。
-    std::cout<<msg.filename<<std::endl;
-    f.seekg(0, f.end);                                     // ：将文件指针移动到文件的末尾。
-    int filesize = f.tellg();                              // 获取文件大小，并将其存储在变量filesize中
-    std::cout << "file size:" << filesize << std::endl;
-    unsigned long long  curr = 0;                                          // 用于存储当前已发送的文件内容大小
-    char buff[1024];
 
-    // int size = (filesize > curr + 1024) ? 1024 : filesize - curr;
-    // f.seekg(curr, f.beg);               // 将文件指针移动到curr位置。
-    // f.read(buff, size);                 // 从文件中读取size大小的内容，并将其存储在buff数组中
-    // msg.data = std::string(buff, size); // 将buff数组中的内容转换为字符串，并将其存储在msg.data中
-    // send_data(msg, sockfd);             // 将文件内容发送给服务器
-    // curr += size;
-    // msg.state = curr;
-    // pthread_mutex_lock(&lock_sendfile);
-    // pthread_cond_wait(&cond_sendfile, &lock_sendfile); // 阻塞等待验证完成
-    // pthread_mutex_unlock(&lock_sendfile);
-      //现假设id和群都存在
-    while (curr < filesize)
+    // 使用sendfile发送文件
+    off_t offset = 0; // 文件偏移量
+    struct stat fileStat;
+    fstat(filefd, &fileStat);
+    size_t fileSize = fileStat.st_size;
+
+    ssize_t bytesSent = sendfile(sockfd, filefd, &offset, fileSize);
+    const size_t chunkSize = 4096; // 每次发送的数据量
+
+    while (offset < fileSize)
     {
-        std::cout<<"你没进去？"<<std::endl;
-        if (sendfile_f == 2)
+        bytesSent = sendfile(sockfd, filefd, &offset, chunkSize);
+        if (bytesSent < 0)
         {
-            std::cout << "这你没进去？" << std::endl;
-            sendfile_f = -1;
-            return;
-        }
-        if (sendfile_f == 1)
-        {
-            std::cout << "这你没进去？" << std::endl;
-            sendfile_f = -1;
+            std::cerr << "Error sending file." << std::endl;
             break;
         }
-         int size = (filesize > curr + 1024) ? 1024 : filesize - curr;
-         std::cout << "size:" << size << std::endl;
-        f.seekg(curr, f.beg);               // 将文件指针移动到curr位置。
-        std::cout << "curr:" << curr << std::endl;
-        f.read(buff, size);                 // 从文件中读取size大小的内容，并将其存储在buff数组中
-      //  std::cout<< std::string(buff, size)<<std::endl;
-        msg.data = std::string(buff, size); // 将buff数组中的内容转换为字符串，并将其存储在msg.data中
-        send_data(msg, sockfd);             // 将文件内容发送给服务器
-        curr += size;
-        msg.fileoff = curr;
-        std::cout << "\r" << msg.filename << ": " << (int)(((float)curr / filesize) * 100)
-                  << "%" << std::endl;
+        offset += bytesSent; // 更新偏移量
     }
-    msg.state = SENDFILEEND;
-    send_data(msg, sockfd);
-    pthread_mutex_lock(&lock_sendfileok);
-    pthread_cond_wait(&cond_sendfileok, &lock_sendfileok); // 阻塞等待验证完成
-    pthread_mutex_unlock(&lock_sendfileok);
+
+    // 关闭文件和socket
+    close(filefd);
+    return 0;
 }
 void ChatClient::displayMenu1()
 {

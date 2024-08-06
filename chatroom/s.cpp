@@ -5,7 +5,10 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/epoll.h>
-#include <fstream>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include "chat.h"
 #include "sq.h"
 #include "json.h"
@@ -18,27 +21,6 @@
 #define DBNAME "qq"
 #define SERVER_PORT 8888
 const int MAX_CLIENTS = 1024;
-int make_socket_non_blocking(int sfd)
-{
-    int flags, s;
-
-    flags = fcntl(sfd, F_GETFL, 0);
-    if (flags == -1)
-    {
-        perror("fcntl");
-        return -1;
-    }
-
-    flags |= O_NONBLOCK;
-    s = fcntl(sfd, F_SETFL, flags);
-    if (s == -1)
-    {
-        perror("fcntl");
-        return -1;
-    }
-
-    return 0;
-}
 
 // 新加的
 // 设置线程睡眠时间
@@ -63,6 +45,7 @@ public:
     ChatServer();
     ~ChatServer();
     void run();
+    void ynLive(int cfd);
 
 private:
     int serverSockfd;
@@ -115,7 +98,7 @@ ChatServer::~ChatServer()
 void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 {
     int cfd = accept(serverSockfd, nullptr, nullptr);
-    //  fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK);
+    fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK);//将他设置成非阻塞
 
     struct epoll_event event = {};
     event.events = EPOLLIN | EPOLLET;
@@ -133,6 +116,43 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
  pool.submit(func, cfd);  
    
     return;
+}
+void ChatServer::ynLive(int cfd)
+{
+     int keep_alive = 1;     // 开启TCP心跳机制
+        int keep_idle = 60;     // 开始首次心跳监测的TCP空闲时间
+        int keep_interval = 10; // 两次心跳检测的时间
+        int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
+
+        // 开启TCP心跳机制
+        if (setsockopt(cfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keep_alive, sizeof(keep_alive)) == -1) 
+        {
+            perror("setsockopt SO_KEEPALIVE");
+            return;
+        }
+
+        // 设置首次心跳检测前的TCP空闭时间
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keep_idle, sizeof(keep_idle)) == -1) 
+        {
+            perror("setsockopt TCP_KEEPIDLE");
+            return;
+        }
+
+        // 设置两次心跳检测的间隔时间
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keep_interval, sizeof(keep_interval)) == -1) 
+        {
+            perror("setsockopt TCP_KEEPINTVL");
+            return;
+        }
+
+        // 设置连续心跳检测失败次数后，判定连接失效
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keep_count, sizeof(keep_count)) == -1) 
+        {
+            perror("setsockopt TCP_KEEPCNT");
+            return;
+        } 
+
+        std::cout << "TCP Keepalive 已配置" << std::endl;
 }
 void ChatServer::run()
 {
@@ -159,6 +179,7 @@ void ChatServer::run()
             { // 已有连接传来消息
                 // 是否应该县监测是否在线
                 std::cout << "已经连接的epollfd说话了" << events[i].data.fd;
+                ynLive(events[i].data.fd);
                 messageCfd(events[i].data.fd);
             }
         }

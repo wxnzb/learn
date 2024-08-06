@@ -1510,7 +1510,7 @@ void Person::groupchatRecord()
 }
 void Person::sendFile() // 先看是给群里发还是给个人发，然后看这个群是否存在，你是否在群里面，这个人是否存在，你是否和他是好友
 {
-
+    
     // 现假设好友和群一定存在
     //  int flag = 1;
     struct protocol msg_back;
