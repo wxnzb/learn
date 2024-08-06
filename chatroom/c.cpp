@@ -1109,8 +1109,9 @@ void ChatClient::sendFile() // 发送文件
         std::cout << "File not exist, please input again: ";
         std::cin >> msg.filename;
     }
-    std::ifstream f;                                       // 定义一个输入文件流对象f，用于打开文件。
-    f.open(msg.filename, std::ios::in | std::ios::binary); // 以二进制模式打开文件，并将其内容设置为输入文件流f。
+    std::ifstream f;    
+    //| std::ios::binary                                   // 定义一个输入文件流对象f，用于打开文件。
+    f.open(msg.filename, std::ios::in ); // 以二进制模式打开文件，并将其内容设置为输入文件流f。
     std::cout<<msg.filename<<std::endl;
     f.seekg(0, f.end);                                     // ：将文件指针移动到文件的末尾。
     int filesize = f.tellg();                              // 获取文件大小，并将其存储在变量filesize中
@@ -1149,7 +1150,7 @@ void ChatClient::sendFile() // 发送文件
         f.seekg(curr, f.beg);               // 将文件指针移动到curr位置。
         std::cout << "curr:" << curr << std::endl;
         f.read(buff, size);                 // 从文件中读取size大小的内容，并将其存储在buff数组中
-        std::cout<< std::string(buff, size)<<std::endl;
+      //  std::cout<< std::string(buff, size)<<std::endl;
         msg.data = std::string(buff, size); // 将buff数组中的内容转换为字符串，并将其存储在msg.data中
         send_data(msg, sockfd);             // 将文件内容发送给服务器
         curr += size;
@@ -1271,7 +1272,6 @@ void ChatClient::displayMenu3()
             chatfriendRecord();
             break;
         }
-        // sleep(15);
     }
     return;
 }

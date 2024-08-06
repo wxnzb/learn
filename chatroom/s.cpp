@@ -68,12 +68,12 @@ private:
     int serverSockfd;
     pthread_t tid;
     int epollfd;
-    ThreadPool *pool;
+    ThreadPool pool;
     void addepollcfd(); // 将客户端的cfd加入epoll
     void messageCfd(int cfd);
 };
 // pool(new ThreadPool(5))
-ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollfd(epoll_create(MAX_CLIENTS)), pool(new ThreadPool(10)) // 创建线程池
+ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollfd(epoll_create(MAX_CLIENTS)),pool(10)
 {
 
     if (serverSockfd < 0)
@@ -110,6 +110,7 @@ ChatServer::~ChatServer()
 {
     close(serverSockfd);
     close(epollfd);
+    pool.shutdown(); // 关闭线程池  
 }
 void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 {
@@ -128,24 +129,14 @@ void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 }
 void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 {
-
-    // int *clientfd = (int *)malloc(sizeof(int));
-    // *clientfd = cfd;
-    // int ret = pthread_create(&tid, NULL, func, (void *)clientfd);
-
-    //    // 创建10个线程的线程池
-
-    //     ThreadPool pool(10);
-
-    //    // 初始化线程池`
-
-    //     pool.init();
-    pool->submit(func, cfd);
+ 
+ pool.submit(func, cfd);  
+   
     return;
 }
 void ChatServer::run()
 {
-    pool->init();
+    // pool->init();
     struct epoll_event events[MAX_CLIENTS];
     while (true)
     {

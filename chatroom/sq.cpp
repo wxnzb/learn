@@ -1614,8 +1614,9 @@ void Person::sendFile() // 先看是给群里发还是给个人发，然后看�
     }
         else
         {
+            //std::ios::binary |
             std::ofstream f;
-            f.open(msg_back.filename, std::ios::binary | std::ios::app); // 打开文件进行追加
+            f.open(msg_back.filename,  std::ios::app); // 打开文件进行追加
             f.seekp(msg.state, f.beg);
             //  std::cout<<msg.data<<std::endl;
             f.write(msg.data.c_str(), msg.data.length());

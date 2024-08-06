@@ -11,20 +11,6 @@ private:
   std::mutex m_mutex;//访问互斥信号量
 
 public:
-  SafeQueue() { //空构造函数
-
-
-  }
-
-  SafeQueue(SafeQueue& other) {//拷贝构造函数
-
-    //TODO:
-  }
-
-  ~SafeQueue() { //析构函数
-
-  }
-
 
   bool empty() {  //队列是否为空
 
@@ -45,7 +31,6 @@ public:
     m_queue.push(t);
   }
 //队列取出元素
-
   bool dequeue(T& t) {
     std::unique_lock<std::mutex> lock(m_mutex); //队列加锁
 

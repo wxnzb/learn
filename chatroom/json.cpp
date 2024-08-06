@@ -76,7 +76,7 @@ void send_data(protocol &p, int sockfd)
 
     // 发送消息体
     send(sockfd, message_body.c_str(), message_body.length(), MSG_NOSIGNAL);
-     std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
+   //  std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
 }
 
 protocol receive_data(int &sockfd)
