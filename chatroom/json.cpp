@@ -62,18 +62,20 @@ void send_data(protocol &p, int sockfd)
     json_obj["data"] = p.data;
     json_obj["id"] = p.id;
     json_obj["state"] = p.state;
+    json_obj["filename"]=p.filename;
+    json_obj["fileoff"]=p.fileoff;
     std::string message_body = json_obj.dump();
 
-  //  std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
-
+   std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
+   std::cout<<"发送的人的cfd"<<sockfd<<std::endl;
     MessageHeader header;
     header.length = message_body.length();
 
     // 发送消息头
-    send(sockfd, reinterpret_cast<const char *>(&header), sizeof(header), 0);
+    send(sockfd, reinterpret_cast<const char *>(&header), sizeof(header), MSG_NOSIGNAL);
 
     // 发送消息体
-    send(sockfd, message_body.c_str(), message_body.length(), 0);
+    send(sockfd, message_body.c_str(), message_body.length(), MSG_NOSIGNAL);
      std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
 }
 
@@ -81,11 +83,12 @@ protocol receive_data(int &sockfd)
 {
     MessageHeader header;
     protocol p;
-    std::cout << "22222 "<< std::endl;
+  //  std::cout << "22222 "<< std::endl;
     int header_len = recv(sockfd, reinterpret_cast<char *>(&header), sizeof(header), 0);
-     std::cout << "11111 "<< std::endl;
+    // std::cout << "11111 "<< std::endl;
     if (header_len <= 0)
     {
+        std::cout<<"你是猪吗"<<std::endl;
         p.state = OFFLINE;
         return p;
     }
@@ -104,7 +107,6 @@ protocol receive_data(int &sockfd)
         total_body_len += body_len;
     }
     message_body[header.length] = '\0'; // 确保字符串正确结束
-
     std::string str(message_body.data());
     std::cout << "收到的 " << str << std::endl;
     try
@@ -115,6 +117,8 @@ protocol receive_data(int &sockfd)
         p.data = json_obj["data"].get<std::string>();
         p.id = json_obj["id"].get<int>();
         p.state = json_obj["state"].get<int>();
+        p.filename = json_obj["filename"].get<std::string>();
+        p.fileoff = json_obj["fileoff"].get<unsigned long long>();
         return p;
     }
         catch (json::parse_error &e)
@@ -125,73 +129,3 @@ protocol receive_data(int &sockfd)
         return p;
     }
 }
-//加油！！！
-// struct MessageHeader {
-//     int length; // 消息体的长度
-// };
-// void send_data(protocol &p, int sockfd)
-// {
-//     json json_obj;
-//     json_obj["cmd"] = p.cmd;
-//     json_obj["name"] = p.name;
-//     json_obj["data"] = p.data;
-//     json_obj["id"] = p.id;
-//     json_obj["state"] = p.state;
-//     std::string message_body = json_obj.dump();
-
-//     MessageHeader header;
-//     header.length = message_body.length();
-
-//     // 构建完整的消息字符串（消息头 + 消息体）
-//     std::string full_message = std::to_string(header.length) + "|" + message_body;
-//     std::cout<<"发送的 " << full_message << std::endl;
-//     // 发送完整的消息字符串
-//     send(sockfd, full_message.c_str(), full_message.length(), 0);
-// }
-// protocol receive_data(int &sockfd)
-// {
-//     std::cout << "开始接收数据" << std::endl;
-//     MessageHeader header;
-//     protocol p;
-//     int header_len = recv(sockfd, reinterpret_cast<char *>(&header), sizeof(header), 0);
-//     if (header_len <= 0)
-//     {
-//         p.state = OFFLINE;
-//         return p;
-//     }
-
-//     // 根据消息头中的长度接收消息体
-//     std::string message_body(header.length + 1, '0'); // 使用string避免栈溢出
-//     int total_body_len = 0;
-//     while (total_body_len < header.length)
-//     {
-//         int body_len = recv(sockfd, message_body.data() + total_body_len, header.length - total_body_len, 0);
-//         if (body_len <= 0)
-//         {
-//             p.state = OFFLINE;
-//             return p;
-//         }
-//         total_body_len += body_len;
-//     }
-//     message_body[header.length] = '\0'; // 确保字符串正确结束
-
-//     std::string str(message_body.data());
-//     std::cout << "收到的 " << str << std::endl;
-//     try
-//     {
-//         json json_obj = json::parse(str);
-//         p.cmd = json_obj["cmd"].get<int>();
-//         p.name = json_obj["name"].get<std::string>();
-//         p.data = json_obj["data"].get<std::string>();
-//         p.id = json_obj["id"].get<int>();
-//         p.state = json_obj["state"].get<int>();
-//         return p;
-//     }
-//     catch (json::parse_error &e)
-//     {
-//         // 处理解析错误
-//         std::cerr << "JSON parse error: " << e.what() << std::endl;
-//         p.state = -1; // 设置错误状态
-//         return p;
-//     }
-// }

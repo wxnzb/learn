@@ -1,6 +1,8 @@
+
 #include <mysql/mysql.h>
 #include <iostream>
 #include "chat.h"
+#include <fstream>
 class Person
 {
 public:
@@ -13,7 +15,7 @@ public:
     void offline(); // 离线
     void upline();  // 上线
     int findId();   // 通过客户端的cfd找id
-    int findCfd();  // 通过id找cfd,为了给好友发送信息
+    int findCfd(int id);  // 通过id找cfd,为了给好友发送信息
     int isFriend(); // 已经是朋友阿
     int isMyself(); // 是自己
     int sq_addFriend();
@@ -22,10 +24,10 @@ public:
     int sq_statusFriend(int id);
     int sq_unblockFriend();
     int sq_restoreFriend();   //// 先将好友发送的消息存起来
-    int senddatatoFriend();   // 将存储在数据库的信息发送给好友
+   // int senddatatoFriend();   // 将存储在数据库的信息发送给好友
     void registerUser();      // 注册
     bool checkUserExists();   // 用户是否存在
-    bool checkUserOnline();   // 是否已经在线
+    bool checkUserOnline(int id);   // 是否已经在线
     bool checkUserPassword(); // 检查密码
     void loginUser();         // 登录
     void logoffUser();        // 注销
@@ -38,6 +40,8 @@ public:
     void unblockFriend();     // 解除屏蔽
     int sq_isBlocked();       // 是否被屏蔽
     int friendNotice(); // 好友通知
+    int sq_chatfriendRecord();
+    void chatfriendRecord();//好友聊天记录
 
     int groupynMe(int id); // 判断是否在群里
     void createGroup();    // 创建群
@@ -53,9 +57,14 @@ public:
     void applyaddGroup(); // 申请加群
     int ynacceptGroup(); // 是否同意加群
     int groupNotice();// 群通知
+    int sq_restoreGroup();
+    int groupChat();// 群聊
+    int sq_chatgroupRecord();
+    void groupchatRecord();//查找群聊记录
+
+    void sendFile(); // 发送文件
 private:
     MYSQL *mysql;
     struct protocol &msg;
     int sockfd; // 客户端描述符
 };
-

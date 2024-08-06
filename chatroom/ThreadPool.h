@@ -113,4 +113,3 @@ public:
     return task_ptr->get_future();
   }
 };
-

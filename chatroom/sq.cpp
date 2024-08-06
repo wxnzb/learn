@@ -1,6 +1,5 @@
 #include "sq.h"
 #include <cstring>
-#include <iostream>
 #include "chat.h"
 #include "json.h"
 Person::Person(MYSQL *Mysql, protocol &Msg, int Sockfd) : mysql(Mysql), msg(Msg), sockfd(Sockfd)
@@ -15,10 +14,10 @@ Person::~Person()
 int Person::addUser()
 {
     char sql_cmd[256];
-    std::cout << msg.name << msg.data << std::endl;
-    std::cout << sockfd << std::endl;
-    std::cout<<"不是，别这样"<<std::endl;
-    snprintf(sql_cmd, sizeof(sql_cmd), "insert into userdata(username, password,cfd,status) values('%s', '%s','%d','%d');",msg.name.c_str(), msg.data.c_str(), sockfd, 1);
+    std::cout << "名字" << msg.name << "密码" << msg.data << std::endl; // 打印名字和密码
+    std::cout << "客户端的cfd" << sockfd << std::endl;
+    // 直接加入数据库，并将状态设置成在线
+    snprintf(sql_cmd, sizeof(sql_cmd), "insert into userdata(username, password,cfd,status) values('%s', '%s','%d','%d');", msg.name.c_str(), msg.data.c_str(), sockfd, 1);
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -26,10 +25,9 @@ int Person::addUser()
         std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
         return -1; // Error indicator
     }
-    int insert_id = mysql_insert_id(mysql);
-    std::cout << "insert_id: " << insert_id << std::endl;
+    int insert_id = mysql_insert_id(mysql); // 获取自动分配的id
+    std::cout << "得到自增的自动分配的id为" << insert_id << std::endl;
     return insert_id;
-    return 1;
 }
 // 减人
 int Person::deleteUser()
@@ -69,10 +67,10 @@ int Person::findId()
     return 0;
 }
 // 根据id找cfd
-int Person::findCfd()
+int Person::findCfd(int id)
 {
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "select cfd from userdata where id = '%d';", msg.id);
+    snprintf(sql_cmd, sizeof(sql_cmd), "select cfd from userdata where id = '%d';", id);
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -89,7 +87,7 @@ int Person::findCfd()
     return 0;
 }
 // 是自己
-int Person::isMyself()
+int Person::isMyself() // msg.id是传过来的好友id，findId是根据cfd对应出来的id
 {
     if (msg.id == findId())
     {
@@ -97,14 +95,8 @@ int Person::isMyself()
     }
     return 0;
 }
-// SELECT * FROM frendslist
-// WHERE (usera = 'your_usera_value' AND userb = 'your_userb_value')
-// OR (usera = 'your_userb_value' AND userb = 'your_usera_value');
-// SELECT IF(EXISTS(SELECT 1 FROM frendslist
-// WHERE (usera = 'your_usera_value' AND userb = 'your_userb_value')
-// OR (usera = 'your_userb_value' AND userb = 'your_usera_value')), 1, 0);
 // 已经是好朋友啦
-int Person::isFriend()
+int Person::isFriend() // msg.id是传过来的好友id，findId是根据cfd对应出来的id，查看他俩是否已经在数据库中
 {
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "select 1 from friendlist where (usera = '%d' and userb = '%d')or (usera = '%d' and userb = '%d');", findId(), msg.id, msg.id, findId());
@@ -121,10 +113,10 @@ int Person::isFriend()
     return exists;
 }
 // 添加好友
-int Person::sq_addFriend()
+int Person::sq_addFriend() // 先看是否数据库有两者的消息，
 {
-    std::cout << "别放弃！" << std::endl;
-    int sender = findId();
+    std::cout << "加好友的信息传进数据库" << std::endl;
+    int sender = findId(); // 发送者的id，因为发送者肯定处于上现，id和cfd绑定在一起
     struct protocol msgback;
     // 先判断是否发过请求
     // status=0表示发的请求，1表示同意，2表示拒绝，3表示信息
@@ -138,7 +130,7 @@ int Person::sq_addFriend()
     }
     MYSQL_RES *result = mysql_store_result(mysql);
     MYSQL_ROW row = mysql_fetch_row(result);
-    if (row != nullptr)
+    if (row != nullptr) // 表示有
     {
         msgback.data = "已经发过请求了,等待对方验证";
         msgback.state = NOCONTINUE;
@@ -158,10 +150,17 @@ int Person::sq_addFriend()
     {
         printf("[%d]对[%d]好友请求存入数据库\n", sender, msg.id);
     }
+    if (checkUserOnline(msg.id))
+    {
+        msgback.id = findId();
+        msgback.data = "发来加好友请求";
+        msgback.state = REQUEST;
+        send_data(msgback, findCfd(msg.id));
+    }
     return 0;
 }
 // 屏蔽好友
-int Person::sq_blockFriend()
+int Person::sq_blockFriend() // msg.id是传过来的好友id，findId是根据cfd对应出来的id，设为0表示屏蔽
 {
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "update friendlist set status=%d where (usera = '%d' and userb = '%d')or (usera = '%d' and userb = '%d');", 0, findId(), msg.id, msg.id, findId());
@@ -175,7 +174,7 @@ int Person::sq_blockFriend()
     return 0;
 }
 // 删除好友
-int Person::sq_deleteFriend()
+int Person::sq_deleteFriend() // msg.id是传过来的好友id，findId是根据cfd对应出来的自己id
 {
     std::cout << msg.name << msg.data << std::endl;
     char sql_cmd[256];
@@ -196,10 +195,9 @@ int Person::sq_statusFriend(int id)
 {
     struct protocol msg_back;
     msg_back.cmd = STATUSFRIEND;
-    std::cout << "id:" << id << std::endl;
+    std::cout << "好友的id为:" << id << std::endl;
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "select username,status from userdata where id = '%d';", id);
-    std::cout << "1" << std::endl;
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
     {
@@ -214,7 +212,7 @@ int Person::sq_statusFriend(int id)
     }
 
     int num_rows = mysql_num_rows(result);
-    std::cout << "Number of rows: " << num_rows << std::endl;
+    std::cout << "Number of rows: " << num_rows << std::endl; // 这我试了下，就是当好友注销了，但在friendlist表里还有记录，在userdata里查不到不会报错
     for (int i = 0; i < num_rows; i++)
     {
         MYSQL_ROW row = mysql_fetch_row(result);
@@ -224,7 +222,7 @@ int Person::sq_statusFriend(int id)
             break;
         }
         msg_back.name = row[0];
-        msg_back.data = row[1];
+        msg_back.data = row[1]; // data里面存的是好友的status
         msg_back.id = id;
         msg_back.state = STATUSFRIEND_OK; // 表示好友状态显示还没结束
         send_data(msg_back, sockfd);
@@ -235,29 +233,9 @@ int Person::sq_statusFriend(int id)
     mysql_free_result(result);
     return 0;
 }
-// 先将好友发送的消息存起来
+// 先将发送的消息存起来
 int Person::sq_restoreFriend()
 {
-    // int status = 0;
-    // int len = msg.data.length();
-    // int i, j;
-    // for (i = 0; i < len; i++)
-    // {
-    //     if (msg.data[i] == '\'')
-    //     {
-    //         status = 1;
-    //         printf("----- --- %c\n", msg.data[i]);
-    //         break;
-    //     }
-    // }
-    // if (status)
-    // {
-    //     msg.data[len + 1] = '\0';
-    //     for (j = len; j > i; j--)
-    //     {
-    //         msg.data[j] = msg.data[j - 1];
-    //     }
-    // }
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "insert into datamessage (inid,toid,status,message) values('%d','%d','%d','%s')", findId(), msg.id, 3, msg.data.c_str());
 
@@ -268,7 +246,7 @@ int Person::sq_restoreFriend()
         return -1; // Error indicator
     }
     else
-        printf("[%d]和[%d]聊天记录成功录入数据库\n", findId(), msg.id);
+        printf("[%d]发给[%d]聊天记录成功录入数据库\n", findId(), msg.id);
     return 0;
 }
 // 将存储在数据库的信息发送给好友
@@ -323,7 +301,7 @@ int Person::sq_unblockFriend() // 解除屏蔽好友
 void Person::offline()
 {
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "update userdata set status=%d where cfd='%d';",0, sockfd);
+    snprintf(sql_cmd, sizeof(sql_cmd), "update userdata set status=%d where cfd='%d';", 0, sockfd);
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -332,7 +310,7 @@ void Person::offline()
     }
 }
 // 上线
-void Person::upline()
+void Person::upline() // 根据id将状态改为1,cfd改为当前套接字
 {
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "update userdata set status=%d ,cfd=%d where id='%d';", 1, sockfd, msg.id);
@@ -359,7 +337,7 @@ void Person::registerUser()
 }
 
 // 用户是否存在
-bool Person::checkUserExists()
+bool Person::checkUserExists() // 找userdata中有没有这个id，有则返回1
 {
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "select 1 from userdata where id = '%d';", msg.id);
@@ -377,7 +355,7 @@ bool Person::checkUserExists()
     return exists;
 }
 // 查找想屏蔽的好友是否已经屏蔽
-int Person::sq_isBlocked()
+int Person::sq_isBlocked() // msg.id为想屏蔽的好友id，findId()为当前用户id
 {
     char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "select status from friendlist where (usera = %d and userb = %d) or (usera = %d and userb = %d);", findId(), msg.id, msg.id, findId());
@@ -393,16 +371,16 @@ int Person::sq_isBlocked()
     MYSQL_ROW row = mysql_fetch_row(result);
     if (row != nullptr)
     {
-        isblock = (atoi(row[0]) == 0);
+        isblock = (atoi(row[0]) == 0); // 返回1表示已经屏蔽，0表示未屏蔽
     }
     mysql_free_result(result);
     return isblock;
 }
 // 用户是否已经在线
-bool Person::checkUserOnline()
+bool Person::checkUserOnline(int id) // 检查id对应的状态是否为1，为1则已经在线(id->status)
 {
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "select status from userdata where id ='%d';", msg.id);
+    snprintf(sql_cmd, sizeof(sql_cmd), "select status from userdata where id ='%d';", id);
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -447,14 +425,14 @@ bool Person::checkUserPassword()
 }
 
 // 登录
-void Person::loginUser()
+void Person::loginUser() // 先看用户是否存在，然后看用户是否已经在线，再判断密码是否正确，最后上线
 {
     struct protocol msg_back;
     msg_back.cmd = LOGIN;
 
     if (checkUserExists())
     {
-        if (checkUserOnline())
+        if (checkUserOnline(msg.id))
         {
             msg_back.state = USER_LOGED;
         }
@@ -545,10 +523,10 @@ int Person::ynAccept()
         }
         msg_back.state = REFUSEFRIENDNEED;
     }
-    send_data(msg_back, findCfd());
+    send_data(msg_back, findCfd(msg.id));
     return 0;
 }
-void Person::addFriend() // 添加好友
+void Person::addFriend() // 添加好友//先看好友是否存在，在看是否加的是自己，然后看是否已经都成为好朋友，最后将申请写进数据库
 {
     struct protocol msg_back;
     msg_back.cmd = ADDFRIEND;
@@ -576,7 +554,7 @@ void Person::addFriend() // 添加好友
     send_data(msg_back, sockfd);
 }
 // 屏蔽好友
-void Person::blockFriend()
+void Person::blockFriend() // 先看好友是否存在，在看是否加的是自己，然后看是否还不是朋友，如果是朋友，是否已经屏蔽过了
 {
     struct protocol msg_back;
     msg_back.cmd = BLOCKFRIEND;
@@ -589,7 +567,7 @@ void Person::blockFriend()
         }
         else if (isFriend())
         {
-            if (!sq_isBlocked())
+            if (!sq_isBlocked()) // 看是否已经屏蔽
             {
                 sq_blockFriend();
                 msg_back.state = OP_OK; // 屏蔽好友成功
@@ -610,7 +588,7 @@ void Person::blockFriend()
     }
     send_data(msg_back, sockfd);
 }
-void Person::deleteFriend() // 删除好友
+void Person::deleteFriend() // 删除好友//先看好友是否存在，在看是否删的是自己，然后看是否还不是朋友，如果是朋友，可以删了
 {
     struct protocol msg_back;
     msg_back.cmd = BLOCKFRIEND;
@@ -637,14 +615,14 @@ void Person::deleteFriend() // 删除好友
     }
     send_data(msg_back, sockfd);
 }
-void Person::statusFriend() // 查看好友状态
+void Person::statusFriend() // 查看好友状态//先在数据库中找到自己的好友id,在根据id去查状态
 {
     struct protocol msg_back;
     msg_back.cmd = STATUSFRIEND;
     std::vector<int> friendid;
     std::cout << "status" << std::endl;
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "select usera from friendlist where userb='%d' union select userb from friendlist where usera='%d';", msg.id, msg.id);
+    snprintf(sql_cmd, sizeof(sql_cmd), "select usera from friendlist where userb='%d' union select userb from friendlist where usera='%d';", findId(), findId());
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -677,11 +655,11 @@ void Person::statusFriend() // 查看好友状态
     {
         sq_statusFriend(friendid[i]);
     }
-    msg_back.state = OP_OK;
+    msg_back.state = OP_OK; // 好友状态已经发完
     send_data(msg_back, sockfd);
     return;
 }
-void Person::privateChat() // 私聊
+void Person::privateChat() // 私聊//好友是否存在，是否是自己，是否是好友，是否在线，在线则发送消息
 {
     std::cout << "privateChat" << std::endl;
     int flag = 1;
@@ -696,21 +674,29 @@ void Person::privateChat() // 私聊
         }
         else if (isFriend())
         {
-            sq_restoreFriend();
-            if (checkUserOnline())
+            if (msg.state == CHATFRIENDRECORD_OK)
             {
-                msg_back1.state = OP_OK; // 对方在线
-                msg_back2.state = YNCHAT;
-                msg_back2.id = findId(); // 发送者id
-                std::cout << findCfd() << std::endl;
-                std::cout << "这的问题" << msg_back2.id << std::endl; // 发送者id
-                msg_back2.data = msg.data;
-                send_data(msg_back2, findCfd());
-                std::cout << "你别认输阿！" << std::endl;
-                flag = 0;
+                std::cout << "chatfriendrecord" << std::endl;
+                sq_chatfriendRecord();
             }
-            else
-                msg_back1.state = FRIEND_OFFLINE; // 对方不在线
+            if (msg.state == OP_OK)
+            {
+                std::cout << "chatfriend" << std::endl;
+                sq_restoreFriend();
+                if (checkUserOnline(msg.id)) // 在线的话看是否屏蔽，没屏蔽就可以直接收到消息
+                {
+                    flag = 0;
+                    if (!sq_isBlocked()) // 如果没有屏蔽，直接发给他
+                    {
+                        msg_back2.state = YNCHAT;
+                        msg_back2.id = findId(); // 发送者id
+                        msg_back2.data = msg.data;
+                        send_data(msg_back2, findCfd(msg.id)); // 发送消息
+                    }
+                }
+                else
+                    msg_back1.state = FRIEND_OFFLINE; // 对方不在线
+            }
         }
         else
         {
@@ -763,11 +749,11 @@ void Person::unblockFriend() // 取消屏蔽好友
     }
     send_data(msg_back, sockfd);
 }
-int Person::friendNotice()// 好友通知
+int Person::friendNotice() // 好友通知
 {
-     int id=findId();
-     struct protocol msg_back;
-     char sql_cmd[256];
+    int id = findId();
+    struct protocol msg_back;
+    char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "select inid,message from datamessage where (toid = '%d' and status ='%d');", id, 0);
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -791,15 +777,78 @@ int Person::friendNotice()// 好友通知
             break;
         }
         std::cout << atoi(row[0]) << ":" << row[1] << std::endl;
-        msg_back.id=atoi(row[0]);
-        msg_back.data=row[1];
+        msg_back.id = atoi(row[0]);
+        msg_back.data = row[1];
         send_data(msg_back, sockfd);
-        std::cout<<"hahaha"<<std::endl;
+        std::cout << "hahaha" << std::endl;
     }
-        msg_back.state=OP_OK;
-        send_data(msg_back, sockfd);
+    msg_back.state = OP_OK;
+    send_data(msg_back, sockfd);
     mysql_free_result(result);
     return 0;
+}
+int Person::sq_chatfriendRecord() // 好友聊天记录,msg.id是好友id
+{
+    int myid = findId(); // 自己id
+    int friendid = msg.id;
+    struct protocol msg_back;
+    char sql_cmd[256];
+    snprintf(sql_cmd, sizeof(sql_cmd), "select * from datamessage where (toid = '%d' and inid='%d' and status ='%d')or (toid = '%d' and inid='%d' and status ='%d');", friendid, myid, 3, myid, friendid, 3);
+    int ret = mysql_query(mysql, sql_cmd);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    MYSQL_RES *result = mysql_store_result(mysql);
+    if (result == NULL)
+    {
+        std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    int num_rows = mysql_num_rows(result);
+    for (int i = 0; i < num_rows; i++)
+    {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row == NULL)
+        {
+            std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+            break;
+        }
+        std::cout << atoi(row[0]) << "->" << atoi(row[1]) << row[2] << std::endl;
+        msg_back.state = CHATFRIENDRECORD_OK;
+        msg_back.id = atoi(row[0]);
+        msg_back.data = row[2];
+        send_data(msg_back, sockfd);
+    }
+    mysql_free_result(result);
+    return 0;
+}
+void Person::chatfriendRecord() // 好友聊天记录//好友是否存在，是否是自己，是否是好友
+{
+    struct protocol msg_back;
+    msg_back.cmd = CHATFRIENDRECORD;
+    if (checkUserExists())
+    {
+        if (isMyself())
+        {
+            msg_back.state = MYSELF; // 是自己
+        }
+        if (isFriend())
+        {
+            sq_chatfriendRecord();
+            msg_back.state = OP_OK;
+        }
+        else
+        {
+            msg_back.state = NOTFRIEND; // 还不是是好友
+        }
+    }
+    else
+    {
+        msg_back.state = USER_NOT_REGIST;
+    }
+    send_data(msg_back, sockfd);
 }
 void Person::createGroup() // 创建群聊
 {
@@ -1126,8 +1175,8 @@ void Person::adManager() // 这个群是否存在，你和他是否在里面，�
 }
 int Person::sq_applyaddGroup()
 {
-    int id=findId();
-    std::cout<<findId()<<std::endl;
+    int id = findId();
+    std::cout << findId() << std::endl;
     struct protocol msgback;
     // 先判断是否已经发送过请求了
     char sql_cmd[256];
@@ -1147,7 +1196,7 @@ int Person::sq_applyaddGroup()
         send_data(msgback, sockfd);
         return 0;
     }
-     std::cout<<findId()<<std::endl;
+    std::cout << findId() << std::endl;
     // 现在将请求存到数据库中
     char sql_cmd1[256];
     snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into groupmessage (inid, name, message, status) values('%d','%s','%s','%d');", id, msg.name.c_str(), msg.data.c_str(), 0);
@@ -1159,14 +1208,42 @@ int Person::sq_applyaddGroup()
     }
     else
     {
-          printf("[%d]对[%s]请求存入数据库\n", id, msg.name.c_str());
+        printf("[%d]对[%s]请求存入数据库\n", id, msg.name.c_str());
+    }
+    // 实现实时发送请求给群主和群管理员
+    char sql_cmd2[256];
+    snprintf(sql_cmd2, sizeof(sql_cmd2), "select  userid from groupdata where  (name ='%s' and  type='%d') or (name ='%s' and type='%d');", msg.name.c_str(), 1, msg.name.c_str(), 2); // 找到该群中该用户是否为管理员或群主
+    int ret1 = mysql_query(mysql, sql_cmd2);
+    if (ret1 != 0)
+    {
+        std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        return -1;
+    }
+    MYSQL_RES *result1 = mysql_store_result(mysql);
+    if (result1 == NULL)
+    {
+        std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+        return -1;
+    }
+    int num_rows1 = mysql_num_rows(result1);
+    std::cout << "nums" << num_rows1 << std::endl;
+    for (int i = 0; i < num_rows1; i++)
+    {
+        row = mysql_fetch_row(result1);
+        if (checkUserOnline(atoi(row[0])))
+        {
+            msgback.id = id;
+            msgback.state = REQUEST;
+            msgback.data = "想加入" + msg.name;
+            send_data(msgback, findCfd(atoi(row[0])));
+        }
     }
     return 0;
 }
 void Person::applyaddGroup() // 申请加群//群是否存在，你是否已经在群里面了
 {
     // status=0表示发的请求，1表示同意，2表示拒绝，3表示信息
-    std::cout<<findId()<<std::endl;
+    std::cout << findId() << std::endl;
     struct protocol msg_back;
     msg_back.cmd = APPLYADDGROUP;
     if (checkGroup())
@@ -1194,7 +1271,7 @@ int Person::ynacceptGroup()
     {
         char sql_cmd[256];
         std::cout << msg.id << std::endl; // msg.id是发送请求的人的id
-        msg_back.id=findId();//同意的那个人的id
+        msg_back.id = findId();           // 同意的那个人的id
         msg_back.name = msg.name;
         snprintf(sql_cmd, sizeof(sql_cmd), "update groupmessage set status=%d where(inid='%d' and name='%s' and status='%d');", 1, msg.id, msg.name.c_str(), 0); // 同意此人加入群聊
         int ret = mysql_query(mysql, sql_cmd);
@@ -1205,8 +1282,8 @@ int Person::ynacceptGroup()
         }
 
         char sql_cmd1[256];
-        std::cout <<"haha"<< msg.id << std::endl; 
-        snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into groupdata(name,userid,type) values('%s','%d','%d');", msg.name.c_str(), msg.id,3); // 将此人加入群聊
+        std::cout << "haha" << msg.id << std::endl;
+        snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into groupdata(name,userid,type) values('%s','%d','%d');", msg.name.c_str(), msg.id, 3); // 将此人加入群聊
         ret = mysql_query(mysql, sql_cmd1);
         if (ret != 0)
         {
@@ -1218,7 +1295,7 @@ int Person::ynacceptGroup()
     else
     {
         char sql_cmd2[256];
-        snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid='%d' and name='%s' and status='%d');", 2, msg.id,msg.name.c_str(), 0); // 拒绝好友请求
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid='%d' and name='%s' and status='%d');", 2, msg.id, msg.name.c_str(), 0); // 拒绝好友请求
         int ret = mysql_query(mysql, sql_cmd2);
         if (ret != 0)
         {
@@ -1227,13 +1304,14 @@ int Person::ynacceptGroup()
         }
         msg_back.state = REFUSEGROUP;
     }
-    send_data(msg_back, findCfd());
+    if (checkUserOnline(msg.id))
+        send_data(msg_back, findCfd(msg.id)); // 发给发送请求的人是否同意加群，哪得看他是否在线阿,上限才发
     return 0;
 }
-int  Person::groupNotice()
+int Person::groupNotice()
 {
-    int id=findId();
-    std::cout<<id<<std::endl;
+    int id = findId();
+    std::cout << id << std::endl;
     char sql_cmd[256];
     struct protocol msg_back;
     snprintf(sql_cmd, sizeof(sql_cmd), "select inid,message,name from groupmessage where  status ='%d';", 0); // 找到所有status=0的
@@ -1284,9 +1362,265 @@ int  Person::groupNotice()
             msg_back.id = atoi(row[0]);
             msg_back.data = row[1];
             msg_back.name = row[2]; // 群名
+            send_data(msg_back, findCfd(msg.id));
         }
     }
     msg_back.state = OP_OK;
-    send_data(msg_back, findCfd());
+    send_data(msg_back, findCfd(msg.id));
     return 0;
 }
+int Person::sq_restoreGroup()
+{
+    char sql_cmd[256];
+    snprintf(sql_cmd, sizeof(sql_cmd), "insert into groupmessage (inid,name,status,message) values('%d','%s','%d','%s')", findId(), msg.name.c_str(), 3, msg.data.c_str());
+
+    int ret = mysql_query(mysql, sql_cmd);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    else
+        printf("[%d]发给[%s]聊天记录成功录入数据库\n", findId(), msg.name.c_str());
+    return 0;
+}
+int Person::groupChat() // 群聊//看这个群是否存在，你是否在群里面
+{
+    int flag = 1;
+    struct protocol msg_back;
+    if (checkGroup())
+    {
+        if (groupynMe(findId()))
+        {
+            flag = 0;
+            sq_restoreGroup(); // 存在数据库
+            // 找群里的每一个人，如果在线，就发给他
+            char sql_cmd[256];
+            snprintf(sql_cmd, sizeof(sql_cmd), "select  userid from groupdata where name='%s';", msg.name.c_str());
+            int ret = mysql_query(mysql, sql_cmd);
+            if (ret != 0)
+            {
+
+                std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+                return -1; // Error indicator
+            }
+            MYSQL_RES *result = mysql_store_result(mysql);
+            if (result == NULL)
+            {
+                std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+                return -1; // Error indicator
+            }
+            int num_rows = mysql_num_rows(result);
+            for (int i = 0; i < num_rows; i++)
+            {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row == NULL)
+                {
+                    std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+                    return -1; // Error indicator
+                }
+                if (atoi(row[0]) == findId())
+                {
+                    continue; // 自己不用发给自己
+                }
+                else
+                {
+                    if (checkUserOnline(atoi(row[0]))) // 看用户是否在线
+                    {
+                        msg_back.state = YNGROUPCHAT;
+                        msg_back.id = findId();
+                        msg_back.data = msg.data;
+                        msg_back.name = msg.name;
+                        send_data(msg_back, findCfd(atoi(row[0])));
+                    }
+                }
+            }
+        }
+        else
+        {
+            msg_back.state = GROUPNOTPERSON;
+        }
+    }
+    else
+    {
+        msg_back.state = GROUP_NOT_EXIST;
+    }
+    if (flag)
+    {
+        send_data(msg_back, findCfd(findId()));
+    }
+    return 0;
+}
+int Person::sq_chatgroupRecord()
+{
+    struct protocol msg_back;
+    char sql_cmd[256];
+    snprintf(sql_cmd, sizeof(sql_cmd), "select * from groupmessage where name='%s';", msg.name.c_str());
+    int ret = mysql_query(mysql, sql_cmd);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    MYSQL_RES *result = mysql_store_result(mysql);
+    if (result == NULL)
+    {
+        std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    int num_rows = mysql_num_rows(result);
+    for (int i = 0; i < num_rows; i++)
+    {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row == NULL)
+        {
+            std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+            break;
+        }
+        std::cout << atoi(row[0]) << "在" << atoi(row[1]) << "群里说" << row[2] << std::endl;
+        msg_back.state = CHATGROUPRECORD_OK;
+        msg_back.id = atoi(row[0]);
+        msg_back.name = row[1];
+        msg_back.data = row[2];
+        send_data(msg_back, sockfd);
+    }
+    mysql_free_result(result);
+    return 0;
+}
+void Person::groupchatRecord()
+{
+    struct protocol msg_back;
+    if (checkGroup())
+    {
+        if (groupynMe(findId()))
+        {
+            sq_chatgroupRecord();
+            msg_back.state = OP_OK;
+        }
+        else
+        {
+            msg_back.state = GROUPNOTPERSON;
+        }
+    }
+    else
+    {
+        msg_back.state = GROUP_NOT_EXIST;
+    }
+    send_data(msg_back, sockfd);
+}
+void Person::sendFile() // 先看是给群里发还是给个人发，然后看这个群是否存在，你是否在群里面，这个人是否存在，你是否和他是好友
+{
+
+    // 现假设好友和群一定存在
+    //  int flag = 1;
+    struct protocol msg_back;
+    // if (msg.id != 0) // 表示是给好友发
+    // {
+    //     if (checkUserExists())
+    //     {
+    //         if (isFriend())
+    //         {
+    //             flag = 0;
+    //         }
+    //         else
+    //         {
+    //             msg_back.state = NOTFRIEND;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         msg_back.state = USER_NOT_REGIST;
+    //     }
+    // }
+    // if (msg.id == 0) // 表示是给群发
+    // {
+    //     if (checkGroup())//检查这个群是否存在
+    //     {
+    //         if (groupynMe(findId()))//群里面是否有我
+    //         {
+    //             flag = 0;
+    //         }
+    //         else
+    //         {
+    //             msg_back.state = GROUPNOTPERSON;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         msg_back.state = GROUP_NOT_EXIST;
+    //     }
+    // }
+    // if (flag == 1)
+    // {
+    //     send_data(msg_back, sockfd);
+    //     return;
+    // }
+
+    msg_back.filename = msg.filename + ".sever";
+
+    if (msg.state == SENDFILEEND) // 文件全部接受完毕
+    {
+        msg_back.state = OP_OK;
+        send_data(msg_back, sockfd);
+        // 还需要判断是群还是好友，然后进行不同的操作
+        if (msg.id != 0) // 表示是给好友发
+        {
+            if (checkUserOnline(msg.id))
+            {
+                msg_back.id = findId();
+                msg_back.state = REQUEST;
+                msg_back.data = "给你发了一个文件" + msg_back.filename;
+                send_data(msg_back, findCfd(msg.id));
+            }
+        }
+        if (msg.id == 0) // 表示是给群发
+        {
+            // 先寻找群里的每一个成员
+            char sql_cmd[256];
+            snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
+            int ret = mysql_query(mysql, sql_cmd);
+            if (ret != 0)
+            {
+                std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+            }
+            MYSQL_RES *result = mysql_store_result(mysql);
+            if (result == NULL)
+            {
+                std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+                return;
+            }
+
+            int num_rows = mysql_num_rows(result);
+            for (int i = 0; i < num_rows; i++)
+            {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row == NULL)
+                {
+                    std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+                    break;
+                }
+                if(atoi(row[0]) == findId())//自己不用发
+                    continue;
+                if (checkUserOnline(atoi(row[0])))
+                {
+
+                    msg_back.id = findId();
+                    msg_back.state = REQUEST;
+                    msg_back.data = "给你发了一个文件" + msg_back.filename;
+                    send_data(msg_back, findCfd(msg.id));
+                }
+            }
+        }
+    }
+        else
+        {
+            std::ofstream f;
+            f.open(msg_back.filename, std::ios::binary | std::ios::app); // 打开文件进行追加
+            f.seekp(msg.state, f.beg);
+            //  std::cout<<msg.data<<std::endl;
+            f.write(msg.data.c_str(), msg.data.length());
+            f.close();
+            msg_back.state = SENDFILE_OK;
+            send_data(msg_back, sockfd);
+        }
+    }

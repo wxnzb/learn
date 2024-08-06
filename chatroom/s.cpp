@@ -5,11 +5,12 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <fstream>
 #include "chat.h"
 #include "sq.h"
 #include "json.h"
 #include "ThreadPool.h"
-#include <random> 
+#include <random>
 #define HOST "127.0.0.1"
 #define PORT 3306
 #define USER "root"
@@ -17,6 +18,27 @@
 #define DBNAME "qq"
 #define SERVER_PORT 8888
 const int MAX_CLIENTS = 1024;
+int make_socket_non_blocking(int sfd)
+{
+    int flags, s;
+
+    flags = fcntl(sfd, F_GETFL, 0);
+    if (flags == -1)
+    {
+        perror("fcntl");
+        return -1;
+    }
+
+    flags |= O_NONBLOCK;
+    s = fcntl(sfd, F_SETFL, flags);
+    if (s == -1)
+    {
+        perror("fcntl");
+        return -1;
+    }
+
+    return 0;
+}
 
 // 新加的
 // 设置线程睡眠时间
@@ -50,8 +72,8 @@ private:
     void addepollcfd(); // 将客户端的cfd加入epoll
     void messageCfd(int cfd);
 };
-//pool(new ThreadPool(5))
-ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollfd(epoll_create(MAX_CLIENTS)),pool(new ThreadPool(10)) // 创建线程池
+// pool(new ThreadPool(5))
+ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollfd(epoll_create(MAX_CLIENTS)), pool(new ThreadPool(10)) // 创建线程池
 {
 
     if (serverSockfd < 0)
@@ -92,7 +114,7 @@ ChatServer::~ChatServer()
 void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 {
     int cfd = accept(serverSockfd, nullptr, nullptr);
-  //  fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK);
+    //  fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK);
 
     struct epoll_event event = {};
     event.events = EPOLLIN | EPOLLET;
@@ -115,7 +137,7 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 
     //     ThreadPool pool(10);
 
-    //    // 初始化线程池
+    //    // 初始化线程池`
 
     //     pool.init();
     pool->submit(func, cfd);
@@ -130,6 +152,13 @@ void ChatServer::run()
         int n = epoll_wait(epollfd, events, MAX_CLIENTS, -1);
         for (int i = 0; i < n; i++)
         {
+             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN)))
+                {
+                    fprintf(stderr, "epoll error\n");
+                    close(events[i].data.fd);
+                    continue;
+                }
+
             if (events[i].data.fd == serverSockfd)
             {
                 addepollcfd(); // 新的连接
@@ -137,32 +166,24 @@ void ChatServer::run()
             }
             else
             { // 已有连接传来消息
-              // 是否应该县监测是否在线
+                // 是否应该县监测是否在线
+                std::cout << "已经连接的epollfd说话了" << events[i].data.fd;
                 messageCfd(events[i].data.fd);
-
-                // int newfd = accept(serverSockfd, nullptr, nullptr);//注意：特别容易出问题，以连接上的就不用accept了
-
-                // int *clientfd = (int *)malloc(sizeof(int));
-                // *clientfd = events[i].data.fd;//newfd;
-                // int ret = pthread_create(&tid, NULL, func, (void *)clientfd);
             }
         }
     }
 }
 void func(int sockfd)
 {
-    //新加的
-     simulate_hard_computation();
+    // 新加的
+    simulate_hard_computation();
 
     std::cout << "new thread" << std::endl;
     MYSQL *mysql = mysql_init(nullptr);
     mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
-    // int sockfd = *((int *)arg);
-    // MYSQL *mysql = mysql_init(nullptr);
-    // mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
-    // free(arg);
-    while (1)
-    {
+
+  //  while (1)
+   // {
         protocol msg = receive_data(sockfd);
         std::cout << "到底收到了没" << std::endl;
         std::cout << "cmd: " << msg.cmd << std::endl;
@@ -171,7 +192,7 @@ void func(int sockfd)
         { // 客户端断开连接
             Person p1(mysql, msg, sockfd);
             p1.offline();
-            break;
+            return;
         }
         Person person(mysql, msg, sockfd);
         std::cout << "Command: " << msg.cmd << std::endl;
@@ -212,6 +233,10 @@ void func(int sockfd)
             break;
         case UNBLOCKFRIEND:
             person.unblockFriend(); // 取消屏蔽好友
+            break;
+        case CHATFRIENDRECORD:
+            person.chatfriendRecord(); // 查看好友聊天记录
+            break;
         case CREATEGROUP:
             std::cout << "create group" << std::endl;
             person.createGroup(); // 创建群聊
@@ -240,20 +265,28 @@ void func(int sockfd)
         case GROUPNOTICE:
             person.groupNotice(); // 群聊通知
             break;
+        case GROUPCHAT:
+            person.groupChat(); // 群聊
+            break;
+        case GROUPCHATRECORD:
+            person.groupchatRecord(); // 查看群聊记录
+            break;
+        case SENDFILE:
+            person.sendFile(); // 发送文件
+            break;
             // default:
             //     std::cerr << "Unknown command." << std::endl;
             //     break;
-        }
+      //  }
     }
 
     mysql_close(mysql);
     // close(sockfd);
     return;
 }
-
 int main()
 {
-
+    
     ChatServer server;
     server.run();
     return 0;
