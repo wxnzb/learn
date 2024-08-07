@@ -63,7 +63,7 @@ void send_data(protocol &p, int sockfd)
     json_obj["id"] = p.id;
     json_obj["state"] = p.state;
     json_obj["filename"]=p.filename;
-    json_obj["fileoff"]=p.fileoff;
+    json_obj["filesize"]=p.filesize;
     std::string message_body = json_obj.dump();
 
    std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
@@ -118,7 +118,7 @@ protocol receive_data(int &sockfd)
         p.id = json_obj["id"].get<int>();
         p.state = json_obj["state"].get<int>();
         p.filename = json_obj["filename"].get<std::string>();
-        p.fileoff = json_obj["fileoff"].get<unsigned long long>();
+        p.filesize = json_obj["filesize"].get<unsigned long long>();
         return p;
     }
         catch (json::parse_error &e)

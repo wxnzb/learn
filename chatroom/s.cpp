@@ -165,6 +165,7 @@ void ChatServer::run()
         {
              if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN)))
                 {
+                    std::cout<<"哈哈哈哈"<<std::endl;
                     fprintf(stderr, "epoll error\n");
                     close(events[i].data.fd);
                     continue;
@@ -283,9 +284,11 @@ void func(int sockfd)
         case GROUPCHATRECORD:
             person.groupchatRecord(); // 查看群聊记录
             break;
-        case SENDFILE:
-            person.sendFile(); // 发送文件
+        case CHECKFILE:
+            person.checkFile(); // 检查接收文件的人或群
             break;
+        case SENDFILE:
+            person.sendFile(); //发送文件
             // default:
             //     std::cerr << "Unknown command." << std::endl;
             //     break;

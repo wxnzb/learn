@@ -25,7 +25,7 @@ struct protocol {
     std::string data; // 数据  
     int id=0;       // 区分用户的关键 
     std::string filename;//文件名 
-    unsigned long long fileoff=0;//文件偏移量
+    unsigned long long filesize=0;//文件偏移量
  
 };  
 
@@ -59,6 +59,7 @@ struct protocol {
 #define GROUPCHAT 26//群聊
 #define GROUPCHATRECORD 27//群聊记录
 #define SENDFILE 28//发送文件
+#define CHECKFILE 29//检查发送文件给的人是否存在什么的
 //#define  SENDFILEEND 29//发送文件结束
 
 

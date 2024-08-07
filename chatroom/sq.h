@@ -62,7 +62,8 @@ public:
     int sq_chatgroupRecord();
     void groupchatRecord();//查找群聊记录
 
-    void sendFile(); // 发送文件
+    void checkFile(); // 检查接收文件的人或群
+    void sendFile();//发送文件
 private:
     MYSQL *mysql;
     struct protocol &msg;

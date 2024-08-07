@@ -1508,120 +1508,174 @@ void Person::groupchatRecord()
     }
     send_data(msg_back, sockfd);
 }
-void Person::sendFile() // 先看是给群里发还是给个人发，然后看这个群是否存在，你是否在群里面，这个人是否存在，你是否和他是好友
+void Person::checkFile() // 先看是给群里发还是给个人发，然后看这个群是否存在，你是否在群里面，这个人是否存在，你是否和他是好友
 {
-    
-    // 现假设好友和群一定存在
-    //  int flag = 1;
     struct protocol msg_back;
-    // if (msg.id != 0) // 表示是给好友发
-    // {
-    //     if (checkUserExists())
-    //     {
-    //         if (isFriend())
-    //         {
-    //             flag = 0;
-    //         }
-    //         else
-    //         {
-    //             msg_back.state = NOTFRIEND;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         msg_back.state = USER_NOT_REGIST;
-    //     }
-    // }
-    // if (msg.id == 0) // 表示是给群发
-    // {
-    //     if (checkGroup())//检查这个群是否存在
-    //     {
-    //         if (groupynMe(findId()))//群里面是否有我
-    //         {
-    //             flag = 0;
-    //         }
-    //         else
-    //         {
-    //             msg_back.state = GROUPNOTPERSON;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         msg_back.state = GROUP_NOT_EXIST;
-    //     }
-    // }
-    // if (flag == 1)
-    // {
-    //     send_data(msg_back, sockfd);
-    //     return;
-    // }
-
-    msg_back.filename = msg.filename + ".sever";
-
-    if (msg.state == SENDFILEEND) // 文件全部接受完毕
+    if (msg.id != 0) // 表示是给好友发
     {
-        msg_back.state = OP_OK;
-        send_data(msg_back, sockfd);
-        // 还需要判断是群还是好友，然后进行不同的操作
-        if (msg.id != 0) // 表示是给好友发
+        if (checkUserExists())
         {
-            if (checkUserOnline(msg.id))
+            if (isFriend())
             {
-                msg_back.id = findId();
-                msg_back.state = REQUEST;
-                msg_back.data = "给你发了一个文件" + msg_back.filename;
-                send_data(msg_back, findCfd(msg.id));
+                msg_back.state = OP_OK;
+            }
+            else
+            {
+                msg_back.state = NOTFRIEND;
             }
         }
-        if (msg.id == 0) // 表示是给群发
-        {
-            // 先寻找群里的每一个成员
-            char sql_cmd[256];
-            snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
-            int ret = mysql_query(mysql, sql_cmd);
-            if (ret != 0)
-            {
-                std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
-            }
-            MYSQL_RES *result = mysql_store_result(mysql);
-            if (result == NULL)
-            {
-                std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
-                return;
-            }
-
-            int num_rows = mysql_num_rows(result);
-            for (int i = 0; i < num_rows; i++)
-            {
-                MYSQL_ROW row = mysql_fetch_row(result);
-                if (row == NULL)
-                {
-                    std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
-                    break;
-                }
-                if(atoi(row[0]) == findId())//自己不用发
-                    continue;
-                if (checkUserOnline(atoi(row[0])))
-                {
-
-                    msg_back.id = findId();
-                    msg_back.state = REQUEST;
-                    msg_back.data = "给你发了一个文件" + msg_back.filename;
-                    send_data(msg_back, findCfd(msg.id));
-                }
-            }
-        }
-    }
         else
         {
-            //std::ios::binary |
-            std::ofstream f;
-            f.open(msg_back.filename,  std::ios::app); // 打开文件进行追加
-            f.seekp(msg.state, f.beg);
-            //  std::cout<<msg.data<<std::endl;
-            f.write(msg.data.c_str(), msg.data.length());
-            f.close();
-            msg_back.state = SENDFILE_OK;
-            send_data(msg_back, sockfd);
+            msg_back.state = USER_NOT_REGIST;
         }
     }
+    if (msg.id == 0) // 表示是给群发
+    {
+        if (checkGroup()) // 检查这个群是否存在
+        {
+            if (groupynMe(findId())) // 群里面是否有我
+            {
+                msg_back.state = OP_OK;
+            }
+            else
+            {
+                msg_back.state = GROUPNOTPERSON;
+            }
+        }
+        else
+        {
+            msg_back.state = GROUP_NOT_EXIST;
+        }
+    }
+    send_data(msg_back, sockfd);
+    return;
+
+    // msg_back.filename = msg.filename + ".sever";
+
+    // if (msg.state == SENDFILEEND) // 文件全部接受完毕
+    // {
+    //     msg_back.state = OP_OK;
+    //     send_data(msg_back, sockfd);
+    //     // 还需要判断是群还是好友，然后进行不同的操作
+    //     if (msg.id != 0) // 表示是给好友发
+    //     {
+    //         if (checkUserOnline(msg.id))
+    //         {
+    //             msg_back.id = findId();
+    //             msg_back.state = REQUEST;
+    //             msg_back.data = "给你发了一个文件" + msg_back.filename;
+    //             send_data(msg_back, findCfd(msg.id));
+    //         }
+    //     }
+    //     if (msg.id == 0) // 表示是给群发
+    //     {
+    //         // 先寻找群里的每一个成员
+    //         char sql_cmd[256];
+    //         snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
+    //         int ret = mysql_query(mysql, sql_cmd);
+    //         if (ret != 0)
+    //         {
+    //             std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+    //         }
+    //         MYSQL_RES *result = mysql_store_result(mysql);
+    //         if (result == NULL)
+    //         {
+    //             std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+    //             return;
+    //         }
+
+    //         int num_rows = mysql_num_rows(result);
+    //         for (int i = 0; i < num_rows; i++)
+    //         {
+    //             MYSQL_ROW row = mysql_fetch_row(result);
+    //             if (row == NULL)
+    //             {
+    //                 std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+    //                 break;
+    //             }
+    //             if(atoi(row[0]) == findId())//自己不用发
+    //                 continue;
+    //             if (checkUserOnline(atoi(row[0])))
+    //             {
+
+    //                 msg_back.id = findId();
+    //                 msg_back.state = REQUEST;
+    //                 msg_back.data = "给你发了一个文件" + msg_back.filename;
+    //                 send_data(msg_back, findCfd(msg.id));
+    //             }
+    //         }
+    //     }
+    // }
+    //     else
+    //     {
+    //         //std::ios::binary |
+    //         std::ofstream f;
+    //         f.open(msg_back.filename,  std::ios::app); // 打开文件进行追加
+    //         f.seekp(msg.state, f.beg);
+    //         //  std::cout<<msg.data<<std::endl;
+    //         f.write(msg.data.c_str(), msg.data.length());
+    //         f.close();
+    //         msg_back.state = SENDFILE_OK;
+    //         send_data(msg_back, sockfd);
+    //     }
+}
+void Person::sendFile()
+{
+    std::string filename;
+    filename = msg.filename + ".sever";
+    FILE *fp = fopen(filename.c_str(), "wb");
+    if (fp == NULL)
+    {
+        std::cerr << "Failed to open file for writing" << std::endl;
+        return;
+    }
+
+    int original_flags = fcntl(sockfd, F_GETFL, 0);
+    if (original_flags == -1)
+    {
+        std::cerr << "Failed to get file descriptor flags: " << strerror(errno) << std::endl;
+        fclose(fp);
+        return;
+    }
+
+    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+    {
+        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+        fclose(fp);
+        return;
+    }
+    int len;
+    char buffer[1310720];
+    off_t total_received = 0;
+
+    while (total_received < msg.filesize)
+    {
+        len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len <= 0)
+        {
+            if (len < 0)
+            {
+                perror("recv");
+            }
+            return;
+        }
+
+        fwrite(buffer, 1, len, fp);
+        total_received += len;
+    }
+    fclose(fp);
+
+    if (fcntl(sockfd, F_SETFL, original_flags) == -1)
+    {
+        std::cerr << "Failed to restore file descriptor flags: " << strerror(errno) << std::endl;
+    }
+
+    if (total_received == msg.filesize)
+    {
+        std::cout << "File received successfully" << std::endl;
+        }
+    else
+    {
+        std::cerr << "File size mismatch" << std::endl;
+    }
+}
