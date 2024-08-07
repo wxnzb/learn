@@ -1645,7 +1645,7 @@ void Person::sendFile()
         return;
     }
     int len;
-    char buffer[1310720];
+    char buffer[1024];
     off_t total_received = 0;
 
     while (total_received < msg.filesize)
@@ -1664,7 +1664,7 @@ void Person::sendFile()
         total_received += len;
     }
     fclose(fp);
-
+    std::cout<<"aaa"<<sockfd<<std::endl;
     if (fcntl(sockfd, F_SETFL, original_flags) == -1)
     {
         std::cerr << "Failed to restore file descriptor flags: " << strerror(errno) << std::endl;
@@ -1673,6 +1673,10 @@ void Person::sendFile()
     if (total_received == msg.filesize)
     {
         std::cout << "File received successfully" << std::endl;
+        struct protocol msg_back1;
+        msg_back1.state=OP_OK;
+        send_data(msg_back1,sockfd);
+        std::cout<<"bbb"<<sockfd<<std::endl;
     }
     else
     {
@@ -1682,6 +1686,7 @@ void Person::sendFile()
     struct protocol msg_back;
     if (msg.id == 0) // 表示是给群发
     {
+        std::cout<<"1111"<<std::endl;
         // 先寻找群里的每一个成员
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
@@ -1720,9 +1725,12 @@ void Person::sendFile()
     }
     if (msg.id != 0) // 表示是给好友发
     {
+        std::cout<<"2222"<<std::endl;
         if (checkUserOnline(msg.id))
         {
+            std::cout<<"333"<<sockfd<<std::endl;
             msg_back.id = findId();
+            std::cout << "msg_back.id = " << msg_back.id << std::endl;
             msg_back.state = REQUEST;
             msg_back.data = "给你发了一个文件" + filename;
             send_data(msg_back, findCfd(msg.id));

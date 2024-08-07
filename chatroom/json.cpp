@@ -6,20 +6,20 @@
 #include <unistd.h>
 #include "chat.h"
 using json = nlohmann::json;
-//自己写的
-// void send_data(protocol &p, int sockfd)
-// {
-//   json json_obj;
-//   json_obj["cmd"] = p.cmd;
-//   json_obj["name"] = p.name;
-//   json_obj["data"] = p.data;
-//   json_obj["id"] = p.id;
-//   json_obj["state"] = p.state;
-//   std::string s = json_obj.dump();
-//   std::cout << "发送的 " << s << std::endl;
-//   send(sockfd, s.c_str(), s.length(), 0);
-//   return;
-// }
+// 自己写的
+//  void send_data(protocol &p, int sockfd)
+//  {
+//    json json_obj;
+//    json_obj["cmd"] = p.cmd;
+//    json_obj["name"] = p.name;
+//    json_obj["data"] = p.data;
+//    json_obj["id"] = p.id;
+//    json_obj["state"] = p.state;
+//    std::string s = json_obj.dump();
+//    std::cout << "发送的 " << s << std::endl;
+//    send(sockfd, s.c_str(), s.length(), 0);
+//    return;
+//  }
 
 // protocol receive_data(int &sockfd)
 // {
@@ -43,7 +43,7 @@ using json = nlohmann::json;
 //   p.state = json_obj["state"].get<int>();
 //   return p;
 // }
-//改的
+// 改的
 #include <iostream>
 #include <cstring>
 #include <sys/socket.h>
@@ -62,46 +62,51 @@ void send_data(protocol &p, int sockfd)
     json_obj["data"] = p.data;
     json_obj["id"] = p.id;
     json_obj["state"] = p.state;
-    json_obj["filename"]=p.filename;
-    json_obj["filesize"]=p.filesize;
+    json_obj["filename"] = p.filename;
+    json_obj["filesize"] = p.filesize;
     std::string message_body = json_obj.dump();
 
-   std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
-   std::cout<<"发送的人的cfd"<<sockfd<<std::endl;
+    std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
+    std::cout << "发送的人的cfd" << sockfd << std::endl;
     MessageHeader header;
     header.length = message_body.length();
-
+    std::cout<<"发送的长度" << header.length << std::endl;
     // 发送消息头
-    send(sockfd, reinterpret_cast<const char *>(&header), sizeof(header), MSG_NOSIGNAL);
+    send(sockfd, reinterpret_cast<const char *>(&header), sizeof(header), 0);
 
     // 发送消息体
-    send(sockfd, message_body.c_str(), message_body.length(), MSG_NOSIGNAL);
-   //  std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
+    send(sockfd, message_body.c_str(), message_body.length(), 0);
+    //  std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
 }
 
 protocol receive_data(int &sockfd)
 {
     MessageHeader header;
     protocol p;
-  //  std::cout << "22222 "<< std::endl;
+    //  std::cout << "22222 "<< std::endl;
     int header_len = recv(sockfd, reinterpret_cast<char *>(&header), sizeof(header), 0);
     // std::cout << "11111 "<< std::endl;
-    // if (header_len <= 0)
-    // {
-    //     std::cout<<"你是猪吗ooo"<<std::endl;
-    //     p.state = OFFLINE;
-    //     return p;
-    // }
-
+    if (header_len <= 0)
+    {
+        std::cout << "你是猪吗ooo" << std::endl;
+        p.state = OFFLINE;
+        return p;
+    }
+    std::cout<<header.length<<std::endl;
     // 根据消息头中的长度接收消息体
     std::vector<char> message_body(header.length + 1); // 使用vector避免栈溢出
     int total_body_len = 0;
+  //  sleep(3);
     while (total_body_len < header.length)
     {
         int body_len = recv(sockfd, message_body.data() + total_body_len, header.length - total_body_len, 0);
-        if (body_len <= 0)
-        {
+      //  std::cout<<"body_len"<<body_len<<std::endl;
+        if (body_len <=0)
+        {  
+            printf("recv ERR  %d %d %d %d " , sockfd , body_len , total_body_len , header.length);
+            perror("recv");
             p.state = OFFLINE;
+
             return p;
         }
         total_body_len += body_len;
@@ -121,7 +126,7 @@ protocol receive_data(int &sockfd)
         p.filesize = json_obj["filesize"].get<unsigned long long>();
         return p;
     }
-        catch (json::parse_error &e)
+    catch (json::parse_error &e)
     {
         // 处理解析错误
         std::cerr << "JSON parse error: " << e.what() << std::endl;

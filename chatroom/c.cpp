@@ -69,6 +69,7 @@ pthread_mutex_t lock_checkfile;
 pthread_cond_t cond_checkfile;
 // pthread_mutex_t lock_sendfileok;
 // pthread_cond_t cond_sendfileok;
+int ssockfd;
 using namespace std;
 int a = 0;
 int login_f = -1;
@@ -116,7 +117,7 @@ private:
     void chatgroupRecord(); // 查看群聊记录
 
     int sendFile(); // 发送文件
-                    //  void receiveFile();// 接收文件
+   // void trueFile(struct protocol msg);           //  void receiveFile();// 接收文件
 };
 
 ChatClient::ChatClient(const char *server_ip, int port)
@@ -169,6 +170,11 @@ void *func(void *arg)
         if (msgback.state == REQUEST)
         {
             std::cout << "id为" << msgback.id << msgback.data << std::endl;
+            continue;
+        }
+        if( msgback.state == SENDFILE_OK)
+        {
+            std::cout << "文件发送成功" << std::endl;
             continue;
         }
         if (a == 1) // 注册
@@ -1072,13 +1078,13 @@ void ChatClient::chatgroupRecord() // 查看群聊天记录
 }
 void trueFile(struct protocol msg)
 {
-    int sfd;
-    struct sockaddr_in server;
-    sfd = socket(PF_INET, SOCK_STREAM, 0);
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons(8888);
-    connect(sfd, (struct sockaddr *)&server, sizeof(server));
+    // int sfd;
+    // struct sockaddr_in server;
+    // sfd = socket(PF_INET, SOCK_STREAM, 0);
+    // server.sin_family = AF_INET;
+    // server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    // server.sin_port = htons(8888);
+    // connect(sfd, (struct sockaddr *)&server, sizeof(server));
     if (!std::filesystem::exists(msg.filename))
     {
         std::cout << "File does not exist" << std::endl;
@@ -1095,14 +1101,14 @@ void trueFile(struct protocol msg)
     fstat(file, &file_stat);
     msg.filesize = file_stat.st_size; // 获取文件大小
     msg.cmd = SENDFILE;
-    send_data(msg, sfd);
+    send_data(msg, ssockfd);
     // 使用 sendfile 发送文件
     off_t offset = 0;
     ssize_t bytes_sent = 0;
     // 循环发送文件
     while (offset < file_stat.st_size)
     {
-        bytes_sent = sendfile(sfd, file, &offset, file_stat.st_size - offset);
+        bytes_sent = sendfile(ssockfd, file, &offset, file_stat.st_size - offset);
         if (bytes_sent < 0)
         {
             std::cerr << "Sendfile error: " << strerror(errno) << "\n";
@@ -1113,7 +1119,7 @@ void trueFile(struct protocol msg)
 
     // 关闭文件和 socket
     close(file);
-    close(sfd);
+    // close(sfd);
     return;
 }
 int ChatClient::sendFile() // 发送文件
@@ -1138,8 +1144,9 @@ int ChatClient::sendFile() // 发送文件
     pthread_mutex_lock(&lock_checkfile);
     pthread_cond_wait(&cond_checkfile, &lock_checkfile); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_checkfile);
+    ssockfd=sockfd;
     if (sendfile_f == 1)
-    { 
+    {
         std::cin >> msg.filename;
         std::thread thread(trueFile, msg);
         thread.detach();
@@ -1329,7 +1336,7 @@ void ChatClient::run()
     displayMenu1();
 }
 
-int main()
+int main(int argc, char **argv)
 {
     pthread_mutex_init(&lock_jy, NULL);
     pthread_cond_init(&cond_jy, NULL);
@@ -1371,7 +1378,17 @@ int main()
     pthread_cond_init(&cond_checkfile, NULL);
     // pthread_mutex_init(&lock_sendfileok, NULL);
     // pthread_cond_init(&cond_sendfileok, NULL);
-    ChatClient client("127.0.0.1", 8888);
+    int port;
+    std::string server_addr = "127.0.0.1";
+    if (argc >= 2)
+    {
+        server_addr = argv[1];
+    }
+    if (argc >= 3)
+    {
+        port = std::stoi(argv[2]);
+    }
+    ChatClient client(server_addr.c_str(),port);
     pthread_t recv_thread;
     pthread_create(&recv_thread, NULL, func, &client.sockfd);
 

@@ -105,6 +105,7 @@
 //     return task_ptr->get_future();
 //   }
 // };
+
 #include <iostream>  
 #include <queue>  
 #include <vector>  
@@ -120,22 +121,18 @@ public:
     ThreadPool(size_t numThreads);  
     ~ThreadPool();  
     
-    // 只允许没有返回值的任务  
-    void submit(std::function<void(int)> task, int arg);  
-
+    void submit(std::function<void(int, MYSQL*)> task, int arg1, MYSQL* arg2);  
     void shutdown();  
 
 private:  
-    std::vector<std::thread> workers; // 工作线程  
-    std::queue<std::function<void()>> tasks; // 任务队列  
-    std::mutex queueMutex; // 任务队列的互斥锁  
-    std::condition_variable condition; // 条件变量  
-    bool stop; // 停止标志  
+    std::vector<std::thread> workers;   
+    std::queue<std::function<void()>> tasks;   
+    std::mutex queueMutex;   
+    std::condition_variable condition;   
+    bool stop;   
 };  
 
-// 线程池构造函数  
-ThreadPool::ThreadPool(size_t numThreads)  
-    : stop(false) {  
+ThreadPool::ThreadPool(size_t numThreads) : stop(false) {  
     for (size_t i = 0; i < numThreads; ++i) {  
         workers.emplace_back([this] {  
             while (true) {  
@@ -148,49 +145,48 @@ ThreadPool::ThreadPool(size_t numThreads)
                     });  
 
                     if (this->stop && this->tasks.empty()) {  
-                        return; // 如果线程池关闭且无任务则退出  
+                        return;  
                     }  
 
                     task = std::move(this->tasks.front());  
                     this->tasks.pop();  
                 }  
 
-                task(); // 执行任务  
+                try {  
+                    task();   
+                } catch (const std::exception& e) {  
+                    std::cerr << "Task execution failed: " << e.what() << std::endl;  
+                }  
             }  
         });  
     }  
 }  
 
-// 线程池析构函数  
 ThreadPool::~ThreadPool() {  
     shutdown();  
 }  
 
-// 提交没有返回值的任务  
-void ThreadPool::submit(std::function<void(int)> task, int arg) {  
+void ThreadPool::submit(std::function<void(int, MYSQL*)> task, int arg1, MYSQL* arg2) {  
     {  
         std::unique_lock<std::mutex> lock(queueMutex);  
 
-        // 不允许在关闭时添加新任务  
         if (stop) {  
             throw std::runtime_error("submit on stopped ThreadPool");  
         }  
 
-        // 将任务转化为无返回值的形式  
-        tasks.emplace([task, arg]() { task(arg); });  
+        tasks.emplace([task, arg1, arg2]() { task(arg1, arg2); });  
     }  
-    condition.notify_one(); // 通知某个线程有任务可处理  
+    condition.notify_one();  
 }  
 
-// 关闭线程池  
 void ThreadPool::shutdown() {  
     {  
         std::unique_lock<std::mutex> lock(queueMutex);  
         stop = true;  
     }  
-    condition.notify_all(); // 释放所有等待的线程  
+    condition.notify_all();  
 
     for (std::thread &worker : workers) {  
-        worker.join(); // 等待每个线程结束  
+        worker.join();  
     }  
-}  
+}

@@ -22,6 +22,8 @@
 #define SERVER_PORT 8888
 const int MAX_CLIENTS = 1024;
 int yepollfd;
+
+
 // 新加的
 // 设置线程睡眠时间
 std::random_device rd; // 真实随机数产生器
@@ -36,7 +38,7 @@ void simulate_hard_computation()
     std::this_thread::sleep_for(std::chrono::milliseconds(2000 + rnd()));
 }
 
-void func(int sockfd);
+void func(int sockfd,MYSQL *mysql);
 
 class ChatServer
 {
@@ -45,6 +47,7 @@ public:
     ChatServer();
     ~ChatServer();
     void run();
+    MYSQL *mysql;
     //  void ynLive(int cfd);
 
 private:
@@ -58,6 +61,15 @@ private:
 // pool(new ThreadPool(5))
 ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollfd(epoll_create(MAX_CLIENTS)), pool(10)
 {
+    mysql = mysql_init(nullptr);
+    if (mysql == nullptr)
+    {
+        std::cerr << "mysql_init() failed\n";
+        return; // 退出或进行其他错误处理
+    }
+
+    mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
+
     yepollfd = epollfd;
     if (serverSockfd < 0)
     {
@@ -103,11 +115,13 @@ ChatServer::~ChatServer()
     close(serverSockfd);
     close(epollfd);
     pool.shutdown(); // 关闭线程池
+    mysql_close(mysql);
+    
 }
 void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 {
     int cfd = accept(serverSockfd, nullptr, nullptr);
-    fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK); // 将他设置成非阻塞
+  // fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK); // 将他设置成非阻塞,这有大问题
 
     struct epoll_event event = {};
     event.events = EPOLLIN | EPOLLET;
@@ -121,7 +135,7 @@ void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 }
 void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 {
-    // 从epoll中删除当前文件描述符
+    //从epoll中删除当前文件描述符
     struct epoll_event event;
     event.events = EPOLLIN | EPOLLET;
     event.data.fd = cfd;
@@ -131,23 +145,7 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
         perror("Epoll_ctl-DEL failed");
         exit(EXIT_FAILURE);
     }
-    pool.submit(func, cfd);
-    // if (fcntl(cfd, F_GETFD) != -1)
-    // {
-    //     // Re-add to epoll
-    //     struct epoll_event event = {};
-    //     event.events = EPOLLIN;
-    //     event.data.fd = cfd;
-
-    //     if (epoll_ctl(yepollfd, EPOLL_CTL_ADD, cfd, &event) == -1)
-    //     {
-    //         perror("Epoll_ctl ADD failed");
-    //     }
-    //     else
-    //     {
-    //         std::cout << "添加成功" << std::endl;
-    //     }
-    // }
+    pool.submit(func, cfd,mysql);
 
     return;
 }
@@ -220,32 +218,23 @@ void ChatServer::run()
         }
     }
 }
-void func(int sockfd) // 新学的知识
+void func(int sockfd,MYSQL *mysql) // 新学的知识
 {
-    // 新加的
-  //  simulate_hard_computation();
+    // MYSQL *mysql=sever.mysql;
+   // 新加的
+    // simulate_hard_computation();
     std::cout << "new thread" << std::endl;
-    MYSQL *mysql = mysql_init(nullptr);
-    if (mysql == nullptr)
-    {
-        std::cerr << "mysql_init() failed\n";
-        return; // 退出或进行其他错误处理
-    }
+    // MYSQL *mysql = mysql_init(nullptr);
+    // if (mysql == nullptr)
+    // {
+    //     std::cerr << "mysql_init() failed\n";
+    //     return; // 退出或进行其他错误处理
+    // }
 
-    mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
+    // mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
 
     //    while (1)
     //    {
-    // 从epoll中删除当前文件描述符
-    // struct epoll_event event;
-    // event.events = EPOLLIN | EPOLLET;
-    // event.data.fd = sockfd;
-    // std::cout << "sockfd" << sockfd << std::endl;
-    // if (epoll_ctl(yepollfd, EPOLL_CTL_DEL, sockfd, &event) == -1)
-    // {
-    //     perror("Epoll_ctl-DEL failed");
-    //     exit(EXIT_FAILURE);
-    // }
     std::cout << "yepollfd" << yepollfd << std::endl;
     protocol msg = receive_data(sockfd);
     std::cout << "到底收到了没" << std::endl;
@@ -359,13 +348,12 @@ void func(int sockfd) // 新学的知识
             std::cout << "添加成功" << std::endl;
         }
 
-    mysql_close(mysql);
+    // mysql_close(mysql);
     // close(sockfd);
     return;
 }
 int main()
 {
-
     ChatServer server;
     server.run();
     return 0;
