@@ -86,12 +86,12 @@ protocol receive_data(int &sockfd)
   //  std::cout << "22222 "<< std::endl;
     int header_len = recv(sockfd, reinterpret_cast<char *>(&header), sizeof(header), 0);
     // std::cout << "11111 "<< std::endl;
-    if (header_len <= 0)
-    {
-        std::cout<<"你是猪吗"<<std::endl;
-        p.state = OFFLINE;
-        return p;
-    }
+    // if (header_len <= 0)
+    // {
+    //     std::cout<<"你是猪吗ooo"<<std::endl;
+    //     p.state = OFFLINE;
+    //     return p;
+    // }
 
     // 根据消息头中的长度接收消息体
     std::vector<char> message_body(header.length + 1); // 使用vector避免栈溢出

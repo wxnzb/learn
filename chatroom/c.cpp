@@ -1121,7 +1121,7 @@ int ChatClient::sendFile() // 发送文件
     sendfile_f = -1;
     struct protocol msg;
     msg.cmd = CHECKFILE;
-    std::cout << "选择发送文件给1:私聊 2:群聊" << std::endl;
+    std::cout << "选择发送文件给1:好友 2:群聊" << std::endl;
     int choice;
     cin >> choice;
     if (choice == 1)

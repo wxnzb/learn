@@ -1673,9 +1673,59 @@ void Person::sendFile()
     if (total_received == msg.filesize)
     {
         std::cout << "File received successfully" << std::endl;
-        }
+    }
     else
     {
         std::cerr << "File size mismatch" << std::endl;
+    }
+
+    struct protocol msg_back;
+    if (msg.id == 0) // 表示是给群发
+    {
+        // 先寻找群里的每一个成员
+        char sql_cmd[256];
+        snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
+        int ret = mysql_query(mysql, sql_cmd);
+        if (ret != 0)
+        {
+            std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        }
+        MYSQL_RES *result = mysql_store_result(mysql);
+        if (result == NULL)
+        {
+            std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+            return;
+        }
+
+        int num_rows = mysql_num_rows(result);
+        for (int i = 0; i < num_rows; i++)
+        {
+            MYSQL_ROW row = mysql_fetch_row(result);
+            if (row == NULL)
+            {
+                std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+                break;
+            }
+            if (atoi(row[0]) == findId()) // 自己不用发
+                continue;
+            if (checkUserOnline(atoi(row[0])))
+            {
+
+                msg_back.id = findId();
+                msg_back.state = REQUEST;
+                msg_back.data = "给你发了一个文件" + filename;
+                send_data(msg_back, findCfd(msg.id));
+            }
+        }
+    }
+    if (msg.id != 0) // 表示是给好友发
+    {
+        if (checkUserOnline(msg.id))
+        {
+            msg_back.id = findId();
+            msg_back.state = REQUEST;
+            msg_back.data = "给你发了一个文件" + filename;
+            send_data(msg_back, findCfd(msg.id));
+        }
     }
 }
