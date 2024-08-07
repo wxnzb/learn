@@ -710,7 +710,7 @@ void *func(void *arg)
             }
             else if (msgback.state == OP_OK)
             {
-                cout << "发送成功" << endl;
+                cout << "请输入文件路径" << endl;
                 sendfile_f = 1;
             }
             pthread_mutex_lock(&lock_checkfile);
@@ -1139,8 +1139,7 @@ int ChatClient::sendFile() // 发送文件
     pthread_cond_wait(&cond_checkfile, &lock_checkfile); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_checkfile);
     if (sendfile_f == 1)
-    {
-        std::cout << "Enter the file name: ";
+    { 
         std::cin >> msg.filename;
         std::thread thread(trueFile, msg);
         thread.detach();
