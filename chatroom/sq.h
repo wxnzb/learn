@@ -64,6 +64,8 @@ public:
 
     void checkFile(); // 检查接收文件的人或群
     void sendFile();//发送文件
+    int fileRestore();//将没发送的文件传给客户端
+    void receiveFile();//接收文件
 private:
     MYSQL *mysql;
     struct protocol &msg;

@@ -14,7 +14,8 @@
 #include <string>  
 #include <vector>  
 #include <iostream>  
-
+#include <filesystem>
+#include <sys/sendfile.h>
 
 
 // C/S 通信的结构体  
@@ -28,7 +29,8 @@ struct protocol {
     unsigned long long filesize=0;//文件偏移量
  
 };  
-
+#define RECEIVEFILE_OK -3 //为了给服务端让他知道是要打印为接收的消息
+#define RECEIVEFILE -2//接收文件
 
 #define  SENDFILEEND -1//发送文件结束,因为你把state当作偏移量给服务端了，所以这里用-1来表示
 #define BROADCAST 1   //广播数据
@@ -106,7 +108,8 @@ struct protocol {
 #define YNGROUPCHAT 65//是否同意群聊
 #define CHATGROUPRECORD_OK 66//群聊记录，未结束
 #define REQUEST 67//实时有到加好友请求或是群聊请求
-#define SENDFILE_OK 68//发送文件，未结束
+#define SENDFILE_OK 68//发送文件成功
+#define NOFILE 69//没有文件
 
 
 

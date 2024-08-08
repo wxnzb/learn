@@ -188,6 +188,16 @@ int Person::sq_deleteFriend() // msg.id是传过来的好友id，findId是根据
         std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
         return -1; // Error indicator
     }
+    // 然后还要删除关于他们所有在datamessage里面的聊天记录,不然删了在加他们就加不上了！！！
+    char sql_cmd1[256];
+    snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from datamessage where (inid = '%d' and toid = '%d')or (inid = '%d' and toid = '%d');", findId(), msg.id, msg.id, findId());
+
+    ret = mysql_query(mysql, sql_cmd1);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
     return 0;
 }
 // 根据id查好友的名字和状态
@@ -553,7 +563,7 @@ void Person::addFriend() // 添加好友//先看好友是否存在，在看是�
     }
     send_data(msg_back, sockfd);
 }
-// 屏蔽好友
+// 屏蔽好友//这有问题，要是屏蔽了两个一起相互私聊，收不到对方法的消息！！还没改
 void Person::blockFriend() // 先看好友是否存在，在看是否加的是自己，然后看是否还不是朋友，如果是朋友，是否已经屏蔽过了
 {
     struct protocol msg_back;
@@ -1392,46 +1402,54 @@ int Person::groupChat() // 群聊//看这个群是否存在，你是否在群里
     {
         if (groupynMe(findId()))
         {
-            flag = 0;
-            sq_restoreGroup(); // 存在数据库
-            // 找群里的每一个人，如果在线，就发给他
-            char sql_cmd[256];
-            snprintf(sql_cmd, sizeof(sql_cmd), "select  userid from groupdata where name='%s';", msg.name.c_str());
-            int ret = mysql_query(mysql, sql_cmd);
-            if (ret != 0)
+            if (msg.state == CHATGROUPRECORD_OK)
+            {
+                groupchatRecord();
+            }
+            if (msg.state == OP_OK)
             {
 
-                std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
-                return -1; // Error indicator
-            }
-            MYSQL_RES *result = mysql_store_result(mysql);
-            if (result == NULL)
-            {
-                std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
-                return -1; // Error indicator
-            }
-            int num_rows = mysql_num_rows(result);
-            for (int i = 0; i < num_rows; i++)
-            {
-                MYSQL_ROW row = mysql_fetch_row(result);
-                if (row == NULL)
+                flag = 0;
+                sq_restoreGroup(); // 存在数据库
+                // 找群里的每一个人，如果在线，就发给他
+                char sql_cmd[256];
+                snprintf(sql_cmd, sizeof(sql_cmd), "select  userid from groupdata where name='%s';", msg.name.c_str());
+                int ret = mysql_query(mysql, sql_cmd);
+                if (ret != 0)
                 {
-                    std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+
+                    std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
                     return -1; // Error indicator
                 }
-                if (atoi(row[0]) == findId())
+                MYSQL_RES *result = mysql_store_result(mysql);
+                if (result == NULL)
                 {
-                    continue; // 自己不用发给自己
+                    std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+                    return -1; // Error indicator
                 }
-                else
+                int num_rows = mysql_num_rows(result);
+                for (int i = 0; i < num_rows; i++)
                 {
-                    if (checkUserOnline(atoi(row[0]))) // 看用户是否在线
+                    MYSQL_ROW row = mysql_fetch_row(result);
+                    if (row == NULL)
                     {
-                        msg_back.state = YNGROUPCHAT;
-                        msg_back.id = findId();
-                        msg_back.data = msg.data;
-                        msg_back.name = msg.name;
-                        send_data(msg_back, findCfd(atoi(row[0])));
+                        std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+                        return -1; // Error indicator
+                    }
+                    if (atoi(row[0]) == findId())
+                    {
+                        continue; // 自己不用发给自己
+                    }
+                    else
+                    {
+                        if (checkUserOnline(atoi(row[0]))) // 看用户是否在线
+                        {
+                            msg_back.state = YNGROUPCHAT;
+                            msg_back.id = findId();
+                            msg_back.data = msg.data;
+                            msg_back.name = msg.name;
+                            send_data(msg_back, findCfd(atoi(row[0])));
+                        }
                     }
                 }
             }
@@ -1664,19 +1682,13 @@ void Person::sendFile()
         total_received += len;
     }
     fclose(fp);
-    std::cout<<"aaa"<<sockfd<<std::endl;
-    if (fcntl(sockfd, F_SETFL, original_flags) == -1)
-    {
-        std::cerr << "Failed to restore file descriptor flags: " << strerror(errno) << std::endl;
-    }
-
     if (total_received == msg.filesize)
     {
         std::cout << "File received successfully" << std::endl;
         struct protocol msg_back1;
-        msg_back1.state=OP_OK;
-        send_data(msg_back1,sockfd);
-        std::cout<<"bbb"<<sockfd<<std::endl;
+        msg_back1.state = SENDFILE_OK;
+        send_data(msg_back1, sockfd);
+        std::cout << "bbb" << sockfd << std::endl;
     }
     else
     {
@@ -1684,9 +1696,12 @@ void Person::sendFile()
     }
 
     struct protocol msg_back;
+    msg_back.id = findId();
+    msg_back.state = REQUEST;
+    // msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
     if (msg.id == 0) // 表示是给群发
     {
-        std::cout<<"1111"<<std::endl;
+        msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
         // 先寻找群里的每一个成员
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
@@ -1716,24 +1731,143 @@ void Person::sendFile()
             if (checkUserOnline(atoi(row[0])))
             {
 
-                msg_back.id = findId();
-                msg_back.state = REQUEST;
-                msg_back.data = "给你发了一个文件" + filename;
+                // msg_back.id = findId();
+                // msg_back.state = REQUEST;
+                //  msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
                 send_data(msg_back, findCfd(msg.id));
+            }
+
+            // 管它再没在线，都要先存起来
+            char sql_cmd1[256];
+            snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), atoi(row[0]), msg.data.c_str(), 0, filename.c_str());
+            ret = mysql_query(mysql, sql_cmd1);
+            if (ret != 0)
+            {
+                std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
             }
         }
     }
     if (msg.id != 0) // 表示是给好友发
     {
-        std::cout<<"2222"<<std::endl;
+        msg_back.data = "给你发了一个文件" + filename;
         if (checkUserOnline(msg.id))
         {
-            std::cout<<"333"<<sockfd<<std::endl;
-            msg_back.id = findId();
-            std::cout << "msg_back.id = " << msg_back.id << std::endl;
-            msg_back.state = REQUEST;
-            msg_back.data = "给你发了一个文件" + filename;
+            // msg_back.id = findId();
+            // msg_back.state = REQUEST;
+            // msg_back.data = "给你发了一个文件" + filename;
             send_data(msg_back, findCfd(msg.id));
         }
+
+        // 管它再没在线，都要先存起来
+        char sql_cmd2[256];
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), msg.id, msg.data.c_str(), 0, filename.c_str());
+        int ret = mysql_query(mysql, sql_cmd2);
+        if (ret != 0)
+        {
+            std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        }
     }
+}
+int Person::fileRestore()
+{
+    struct protocol msg_back;
+    char sql_cmd[256];
+    snprintf(sql_cmd, sizeof(sql_cmd), "select * from filemessage where (toid='%d' and status ='%d');", findId(), 0);
+    int ret = mysql_query(mysql, sql_cmd);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    MYSQL_RES *result = mysql_store_result(mysql);
+    if (result == NULL)
+    {
+        std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    int num_rows = mysql_num_rows(result);
+    for (int i = 0; i < num_rows; i++)
+    {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row == NULL)
+        {
+            std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+            break;
+        }
+        msg_back.id = atoi(row[0]);
+        msg_back.data = row[2];
+        msg_back.state = RECEIVEFILE_OK;
+        send_data(msg_back, sockfd);
+    }
+    if(num_rows==0)//根本没有未读的文件或者文件已经读完了
+       return 0;
+    return 1;
+}
+void Person::receiveFile()
+{
+    struct protocol msg_back;
+    if (msg.state == RECEIVEFILE_OK)
+    {
+        // 先把发给他但是他还没接收的文件传给他
+        if(fileRestore()==0)
+        {
+            msg_back.state = NOFILE;
+            send_data(msg_back, sockfd);
+            return;
+        }
+    
+         // 先查找要收的文件有人给他发没
+        char sql_cmd[256];
+        snprintf(sql_cmd, sizeof(sql_cmd), "select * from filemessage where (filename='%s' and toid='%d' and status ='%d');", msg.filename.c_str(), findId(), 0);
+        int ret = mysql_query(mysql, sql_cmd);
+        if (ret != 0)
+        {
+            std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        }
+        MYSQL_RES *result = mysql_store_result(mysql);
+        if (result == NULL)
+        {
+            std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+            return;
+        }
+
+        int num_rows = mysql_num_rows(result);
+        if (num_rows == 0) // 表示没有人给他发送这个文件
+        {
+            msg_back.state = NOFILE;
+            send_data(msg_back, sockfd);
+            return;
+        }
+    }
+
+            // 开始发文件
+            int file = open(msg.filename.c_str(), O_RDONLY);
+            if (file == -1)
+            {
+                std::cerr << "Failed to open file" << std::endl;
+                return;
+            }
+            // 获取文件大小
+            struct stat file_stat;
+            fstat(file, &file_stat);
+            msg_back.filesize = file_stat.st_size; // 获取文件大小
+            msg_back.state=OP_OK;
+            send_data(msg_back, sockfd);
+            // 使用 sendfile 发送文件
+            off_t offset = 0;
+            ssize_t bytes_sent = 0;
+            // 循环发送文件
+            while (offset < file_stat.st_size)
+            {
+                bytes_sent = sendfile(sockfd, file, &offset, file_stat.st_size - offset);
+                if (bytes_sent < 0)
+                {
+                    std::cerr << "Sendfile error: " << strerror(errno) << "\n";
+                    break;
+                }
+                std::cout << "Sent " << bytes_sent << " bytes, total sent: " << offset << " bytes\n";
+            }
+
+            // 关闭文件和 socket
+            close(file);
 }

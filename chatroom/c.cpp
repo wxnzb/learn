@@ -7,14 +7,12 @@
 #include <mysql/mysql.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/sendfile.h>
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
-
 #include "chat.h"
 #include "json.h"
 #define HOST "127.0.0.1"
@@ -33,10 +31,6 @@ pthread_mutex_t lock_block;
 pthread_cond_t cond_block;
 pthread_mutex_t lock_delete;
 pthread_cond_t cond_delete;
-// pthread_mutex_t lock_add;
-// pthread_cond_t cond_add;
-// pthread_mutex_t lock_modpwd;
-// pthread_cond_t cond_modpwd;
 pthread_mutex_t lock_show;
 pthread_cond_t cond_show;
 pthread_mutex_t lock_friendnotice;
@@ -67,8 +61,10 @@ pthread_mutex_t lock_chatgrouprecord;
 pthread_cond_t cond_chatgrouprecord;
 pthread_mutex_t lock_checkfile;
 pthread_cond_t cond_checkfile;
-// pthread_mutex_t lock_sendfileok;
-// pthread_cond_t cond_sendfileok;
+pthread_mutex_t lock_groupmsg;
+pthread_cond_t cond_groupmsg;
+pthread_mutex_t lock_receivefile;
+pthread_cond_t cond_receivefile;
 int ssockfd;
 using namespace std;
 int a = 0;
@@ -76,6 +72,8 @@ int login_f = -1;
 int private_f = -1;
 int group_f = -1;
 int sendfile_f = -1;
+int ynfile_f=-1;
+unsigned long long fsize=0;
 int id;
 class ChatClient
 {
@@ -116,8 +114,8 @@ private:
     void groupChat();       // 群聊
     void chatgroupRecord(); // 查看群聊记录
 
-    int sendFile(); // 发送文件
-   // void trueFile(struct protocol msg);           //  void receiveFile();// 接收文件
+    int sendFile();     // 发送文件
+    void receiveFile(); // 接收文件    // void trueFile(struct protocol msg);           //  void receiveFile();// 接收文件
 };
 
 ChatClient::ChatClient(const char *server_ip, int port)
@@ -172,7 +170,7 @@ void *func(void *arg)
             std::cout << "id为" << msgback.id << msgback.data << std::endl;
             continue;
         }
-        if( msgback.state == SENDFILE_OK)
+        if (msgback.state == SENDFILE_OK)
         {
             std::cout << "文件发送成功" << std::endl;
             continue;
@@ -658,17 +656,28 @@ void *func(void *arg)
         }
         if (a == 23) // 群聊
         {
-            if (msgback.state == GROUP_NOT_EXIST)
+            if (msgback.state == CHATGROUPRECORD_OK)
             {
-                cout << "群聊不存在" << endl;
-                group_f = 1;
-                std::cout << "请按任意健退出" << std::endl;
+                std::cout << msgback.name << "里的" << msgback.id << ":" << msgback.data << std::endl;
             }
-            if (msgback.state == GROUPNOTPERSON)
+            else
             {
-                cout << "你不在群里面" << endl;
-                group_f = 1;
-                std::cout << "请按任意健退出" << std::endl;
+
+                if (msgback.state == GROUP_NOT_EXIST)
+                {
+                    cout << "群聊不存在" << endl;
+                    group_f = 1;
+                    std::cout << "请按任意健退出" << std::endl;
+                }
+                if (msgback.state == GROUPNOTPERSON)
+                {
+                    cout << "你不在群里面" << endl;
+                    group_f = 1;
+                    std::cout << "请按任意健退出" << std::endl;
+                }
+                pthread_mutex_lock(&lock_groupmsg);
+                pthread_cond_signal(&cond_groupmsg); // 阻塞等待验证完成
+                pthread_mutex_unlock(&lock_groupmsg);
             }
         }
         if (a == 24)
@@ -722,6 +731,31 @@ void *func(void *arg)
             pthread_mutex_lock(&lock_checkfile);
             pthread_cond_signal(&cond_checkfile); // 阻塞等待验证完成
             pthread_mutex_unlock(&lock_checkfile);
+        }
+        if (a == 25)
+        {
+            if (msgback.state == RECEIVEFILE_OK)
+            {
+                std::cout << msgback.id << ":" << msgback.data << std::endl;
+                continue;
+            }
+            else
+            {
+                if (msgback.state == NOFILE)
+                {
+                    cout << "文件不存在" << endl;
+                    ynfile_f=1;
+                }
+                if (msgback.state == OP_OK)
+                {
+                    cout << "开始接收文件" << endl;
+                    fsize=msgback.filesize;
+
+                }
+                pthread_mutex_lock(&lock_receivefile);
+                pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
+                pthread_mutex_unlock(&lock_receivefile);
+            }
         }
     }
     return nullptr;
@@ -1040,11 +1074,16 @@ int ChatClient::noticeGroup() // 是否同意同意加群
 void ChatClient::groupChat()
 {
     group_f = -1;
-    // pthread_mutex_lock(&lock_msg);
     struct protocol msg;
     msg.cmd = GROUPCHAT;
     cout << "Input you want to chat group's name: ";
     cin >> msg.name;
+    msg.state = CHATGROUPRECORD_OK;
+    send_data(msg, sockfd);
+    pthread_mutex_lock(&lock_groupmsg);
+    pthread_cond_wait(&cond_groupmsg, &lock_groupmsg);
+    pthread_mutex_unlock(&lock_groupmsg);
+    msg.state = OP_OK;
     printf("[Quit退出聊天]->:");
     std::cout << "Enter the message: ";
     std::cin >> msg.data;
@@ -1056,12 +1095,6 @@ void ChatClient::groupChat()
         std::cout << msg.data << std::endl;
         std::cin >> msg.data;
     }
-    // pthread_mutex_lock(&lock_msg);
-    // pthread_cond_wait(&cond_msg, &lock_msg);
-    // pthread_mutex_unlock(&lock_msg);
-    // 如果发送来的消息sender和talkuser一致 或为0  (未处于聊天界面) 直接打印
-    // 如果不相等存入未读消息
-
     return;
 }
 
@@ -1144,14 +1177,75 @@ int ChatClient::sendFile() // 发送文件
     pthread_mutex_lock(&lock_checkfile);
     pthread_cond_wait(&cond_checkfile, &lock_checkfile); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_checkfile);
-    ssockfd=sockfd;
-    if (sendfile_f == 1)
+    ssockfd = sockfd;
+    if (sendfile_f == 1) // 这可能会存在线程竞争的问题！！
     {
         std::cin >> msg.filename;
         std::thread thread(trueFile, msg);
         thread.detach();
     }
     return 0;
+}
+void ChatClient::receiveFile() // 接收文件
+{
+    struct protocol msg;
+    msg.cmd = RECEIVEFILE;
+    std::cout << "请输入你要接收的文件名: " << std::endl;
+    std::cin >> msg.filename;
+    msg.state = RECEIVEFILE_OK;
+    send_data(msg, sockfd);
+    pthread_mutex_lock(&lock_receivefile);
+    pthread_cond_wait(&cond_receivefile, &lock_receivefile); // 阻塞等待验证完成
+    pthread_mutex_unlock(&lock_receivefile);
+    if(ynfile_f==1)
+    return;
+    
+    std::string filename;
+    filename = msg.filename + ".client";
+    FILE *fp = fopen(filename.c_str(), "wb");
+    if (fp == NULL)
+    {
+        std::cerr << "Failed to open file for writing" << std::endl;
+        return;
+    }
+
+    int original_flags = fcntl(sockfd, F_GETFL, 0);
+
+    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+    {
+        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+        fclose(fp);
+        return;
+    }
+    int len;
+    char buffer[1024];
+    off_t total_received = 0;
+
+    while (total_received < fsize)
+    {
+        len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len <= 0)
+        {
+            if (len < 0)
+            {
+                perror("recv");
+            }
+            return;
+        }
+
+        fwrite(buffer, 1, len, fp);
+        total_received += len;
+    }
+    fclose(fp);
+    if (total_received == msg.filesize)
+    {
+        std::cout << "File received successfully" << std::endl;
+    }
+    else
+    {
+        std::cerr << "File size mismatch" << std::endl;
+    }
+    return;
 }
 void ChatClient::displayMenu1()
 {
@@ -1189,6 +1283,7 @@ void ChatClient::displayMenu2()
         cout << "\t 4 好友管理 " << endl;
         cout << "\t 5 群组管理" << endl;
         cout << "\t 6 文件管理" << endl;
+        cout << "\t 25 文件接收" << endl;
         //  printf("[0]返回上一级页面\n");
         cin >> sel;
         // if(sel==0)
@@ -1204,6 +1299,10 @@ void ChatClient::displayMenu2()
         case 6:
             a = 6;
             sendFile();
+            break;
+        case 25:
+            a = 25;
+            receiveFile();
             break;
         }
     }
@@ -1376,8 +1475,10 @@ int main(int argc, char **argv)
     pthread_cond_init(&cond_chatgrouprecord, NULL);
     pthread_mutex_init(&lock_checkfile, NULL);
     pthread_cond_init(&cond_checkfile, NULL);
-    // pthread_mutex_init(&lock_sendfileok, NULL);
-    // pthread_cond_init(&cond_sendfileok, NULL);
+    pthread_mutex_init(&lock_groupmsg, NULL);
+    pthread_cond_init(&cond_groupmsg, NULL);
+    pthread_mutex_init(&lock_receivefile, NULL);
+    pthread_cond_init(&cond_receivefile, NULL);
     int port;
     std::string server_addr = "127.0.0.1";
     if (argc >= 2)
@@ -1388,7 +1489,7 @@ int main(int argc, char **argv)
     {
         port = std::stoi(argv[2]);
     }
-    ChatClient client(server_addr.c_str(),port);
+    ChatClient client(server_addr.c_str(), port);
     pthread_t recv_thread;
     pthread_create(&recv_thread, NULL, func, &client.sockfd);
 
