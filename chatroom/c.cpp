@@ -16,7 +16,7 @@
 #include "chat.h"
 #include "json.h"
 #define HOST "127.0.0.1"
-#define PORT 3306
+#define PORT 8888
 #define USER "root"
 #define PASSWD "WwL200488"
 #define DBNAME "qq"
@@ -911,7 +911,7 @@ void ChatClient::statusFriend() // 展示好友在线状态
     struct protocol msg, msgback;
     msg.cmd = STATUSFRIEND;
     //  msg.id = id;
-    std::cout << "好友在线情况" << std::endl;
+    std::cout << "好友在线情况,0表示在线，1表示不在线" << std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_show);
     pthread_cond_wait(&cond_show, &lock_show);
@@ -1462,17 +1462,12 @@ int main(int argc, char **argv)
     pthread_cond_init(&cond_groupmsg, NULL);
     pthread_mutex_init(&lock_receivefile, NULL);
     pthread_cond_init(&cond_receivefile, NULL);
-    int port;
     std::string server_addr = "127.0.0.1";
     if (argc >= 2)
     {
         server_addr = argv[1];
     }
-    if (argc >= 3)
-    {
-        port = std::stoi(argv[2]);
-    }
-    ChatClient client(server_addr.c_str(), port);
+    ChatClient client(server_addr.c_str(), PORT);
     pthread_t recv_thread;
     pthread_create(&recv_thread, NULL, func, &client.sockfd);
 
