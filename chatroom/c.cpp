@@ -72,8 +72,8 @@ int login_f = -1;
 int private_f = -1;
 int group_f = -1;
 int sendfile_f = -1;
-int ynfile_f=-1;
-unsigned long long fsize=0;
+int ynfile_f = -1;
+unsigned long long fsize = 0;
 int id;
 class ChatClient
 {
@@ -744,17 +744,72 @@ void *func(void *arg)
                 if (msgback.state == NOFILE)
                 {
                     cout << "文件不存在" << endl;
-                    ynfile_f=1;
+                    ynfile_f = 1;
+                    pthread_mutex_lock(&lock_receivefile);
+                    pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
+                    pthread_mutex_unlock(&lock_receivefile);
+                }
+                
+                if (msgback.state == RECEIVEFILE_END)
+                {
+                    cout << "未接收的文件展示完成" << endl;
+                    pthread_mutex_lock(&lock_receivefile);
+                    pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
+                    pthread_mutex_unlock(&lock_receivefile);
                 }
                 if (msgback.state == OP_OK)
                 {
                     cout << "开始接收文件" << endl;
-                    fsize=msgback.filesize;
 
+                    std::string filename;
+                    filename = msgback.filename + ".client";
+                    FILE *fp = fopen(filename.c_str(), "wb");
+                    if (fp == NULL)
+                    {
+                        std::cerr << "Failed to open file for writing" << std::endl;
+                    }
+
+                    int original_flags = fcntl(sockfd, F_GETFL, 0);
+
+                    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+                    {
+                        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+                        fclose(fp);
+                    }
+                    int len;
+                    char buffer[1024];
+                    off_t total_received = 0;
+                    while (total_received < msgback.filesize)
+                    {
+                        std::cout << total_received << std::endl;
+                        len = recv(sockfd, buffer, sizeof(buffer), 0);
+                        if (len <= 0)
+                        {
+                            if (len < 0)
+                            {
+                                perror("recv");
+                            }
+                        }
+
+                        fwrite(buffer, 1, len, fp);
+                        total_received += len;
+                    }
+                    fclose(fp);
+                    if (total_received == msgback.filesize)
+                    {
+                        std::cout << "File received successfully" << std::endl;
+                    }
+                    else
+                    {
+                        std::cerr << "File size mismatch" << std::endl;
+                    }
+                    pthread_mutex_lock(&lock_receivefile);
+                    pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
+                    pthread_mutex_unlock(&lock_receivefile);
                 }
-                pthread_mutex_lock(&lock_receivefile);
-                pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
-                pthread_mutex_unlock(&lock_receivefile);
+                // pthread_mutex_lock(&lock_receivefile);
+                // pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
+                // pthread_mutex_unlock(&lock_receivefile);
             }
         }
     }
@@ -872,36 +927,6 @@ void ChatClient::statusFriend() // 展示好友在线状态
     pthread_mutex_unlock(&lock_show);
     return;
 }
-// 和好友进行私聊
-// void ChatClient::privateChat()
-// {
-//     private_f =-1;
-//     // pthread_mutex_lock(&lock_msg);
-//     struct protocol msg;
-//     msg.cmd = PRIVATECHAT;
-//     cout << "Input your friend's ID: ";
-//     cin >> msg.id;
-//     printf("[Quit退出聊天]->:");
-//     std::cout << "Enter the message: ";
-//     std::cin >> msg.data;
-//     while (strcmp(msg.data.c_str(), "Quit"))
-//     {
-//         if (private_f == 1)
-//         {
-//             break;
-//         }
-//         send_data(msg, sockfd);
-//         std::cout << msg.data << std::endl;
-//         std::cin >> msg.data;
-//     }
-//     // pthread_mutex_lock(&lock_msg);
-//     // pthread_cond_wait(&cond_msg, &lock_msg);
-//     // pthread_mutex_unlock(&lock_msg);
-//     // 如果发送来的消息sender和talkuser一致 或为0  (未处于聊天界面) 直接打印
-//     // 如果不相等存入未读消息
-
-//     return;
-// }
 void ChatClient::privateChat()
 {
     private_f = -1;
@@ -1188,63 +1213,72 @@ int ChatClient::sendFile() // 发送文件
 }
 void ChatClient::receiveFile() // 接收文件
 {
+      ynfile_f = -1;
     struct protocol msg;
+    // 先打引出未收到的文件
     msg.cmd = RECEIVEFILE;
-    std::cout << "请输入你要接收的文件名: " << std::endl;
-    std::cin >> msg.filename;
     msg.state = RECEIVEFILE_OK;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_receivefile);
     pthread_cond_wait(&cond_receivefile, &lock_receivefile); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_receivefile);
-    if(ynfile_f==1)
-    return;
-    
-    std::string filename;
-    filename = msg.filename + ".client";
-    FILE *fp = fopen(filename.c_str(), "wb");
-    if (fp == NULL)
+    if (ynfile_f == 1)
     {
-        std::cerr << "Failed to open file for writing" << std::endl;
+        ynfile_f = -1;
         return;
     }
+    std::cout << "请输入你要接收的文件名: " << std::endl;
+    msg.state = OP_OK;
+    std::cin >> msg.filename;
+    send_data(msg, sockfd);
+    pthread_mutex_lock(&lock_receivefile);
+    pthread_cond_wait(&cond_receivefile, &lock_receivefile); // 阻塞等待验证完成
+    pthread_mutex_unlock(&lock_receivefile);
+    // filename = msg.filename + ".client";
+    // FILE *fp = fopen(filename.c_str(), "wb");
+    // if (fp == NULL)
+    // {
+    //     std::cerr << "Failed to open file for writing" << std::endl;
+    //     return;
+    // }
 
-    int original_flags = fcntl(sockfd, F_GETFL, 0);
+    // int original_flags = fcntl(sockfd, F_GETFL, 0);
 
-    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
-    {
-        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
-        fclose(fp);
-        return;
-    }
-    int len;
-    char buffer[1024];
-    off_t total_received = 0;
+    // if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+    // {
+    //     std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+    //     fclose(fp);
+    //     return;
+    // }
+    // int len;
+    // char buffer[1024];
+    // off_t total_received = 0;
+    // std::cout << fsize << std::endl;
+    // while (total_received < fsize)
+    // {
+    //     std::cout << total_received << std::endl;
+    //     len = recv(sockfd, buffer, sizeof(buffer), 0);
+    //     if (len <= 0)
+    //     {
+    //         if (len < 0)
+    //         {
+    //             perror("recv");
+    //         }
+    //         return;
+    //     }
 
-    while (total_received < fsize)
-    {
-        len = recv(sockfd, buffer, sizeof(buffer), 0);
-        if (len <= 0)
-        {
-            if (len < 0)
-            {
-                perror("recv");
-            }
-            return;
-        }
-
-        fwrite(buffer, 1, len, fp);
-        total_received += len;
-    }
-    fclose(fp);
-    if (total_received == msg.filesize)
-    {
-        std::cout << "File received successfully" << std::endl;
-    }
-    else
-    {
-        std::cerr << "File size mismatch" << std::endl;
-    }
+    //     fwrite(buffer, 1, len, fp);
+    //     total_received += len;
+    // }
+    // fclose(fp);
+    // if (total_received == fsize)
+    // {
+    //     std::cout << "File received successfully" << std::endl;
+    // }
+    // else
+    // {
+    //     std::cerr << "File size mismatch" << std::endl;
+    // }
     return;
 }
 void ChatClient::displayMenu1()
@@ -1282,7 +1316,7 @@ void ChatClient::displayMenu2()
     {
         cout << "\t 4 好友管理 " << endl;
         cout << "\t 5 群组管理" << endl;
-        cout << "\t 6 文件管理" << endl;
+        cout << "\t 6 文件发送" << endl;
         cout << "\t 25 文件接收" << endl;
         //  printf("[0]返回上一级页面\n");
         cin >> sel;

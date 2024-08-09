@@ -1648,20 +1648,15 @@ void Person::sendFile()
         return;
     }
 
-    int original_flags = fcntl(sockfd, F_GETFL, 0);
-    if (original_flags == -1)
-    {
-        std::cerr << "Failed to get file descriptor flags: " << strerror(errno) << std::endl;
-        fclose(fp);
-        return;
-    }
+   
+    // int original_flags = fcntl(sockfd, F_GETFL, 0);
 
-    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
-    {
-        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
-        fclose(fp);
-        return;
-    }
+    // if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+    // {
+    //     std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+    //     fclose(fp);
+    //     return;
+    // }
     int len;
     char buffer[1024];
     off_t total_received = 0;
@@ -1739,7 +1734,7 @@ void Person::sendFile()
 
             // 管它再没在线，都要先存起来
             char sql_cmd1[256];
-            snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), atoi(row[0]), msg.data.c_str(), 0, filename.c_str());
+            snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), atoi(row[0]), msg_back.data.c_str(), 0, filename.c_str());
             ret = mysql_query(mysql, sql_cmd1);
             if (ret != 0)
             {
@@ -1760,7 +1755,7 @@ void Person::sendFile()
 
         // 管它再没在线，都要先存起来
         char sql_cmd2[256];
-        snprintf(sql_cmd2, sizeof(sql_cmd2), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), msg.id, msg.data.c_str(), 0, filename.c_str());
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), msg.id, msg_back.data.c_str(), 0, filename.c_str());
         int ret = mysql_query(mysql, sql_cmd2);
         if (ret != 0)
         {
@@ -1786,6 +1781,7 @@ int Person::fileRestore()
         return -1; // Error indicator
     }
     int num_rows = mysql_num_rows(result);
+    std::cout << "num_rows: " << num_rows << std::endl;
     for (int i = 0; i < num_rows; i++)
     {
         MYSQL_ROW row = mysql_fetch_row(result);
@@ -1799,8 +1795,12 @@ int Person::fileRestore()
         msg_back.state = RECEIVEFILE_OK;
         send_data(msg_back, sockfd);
     }
-    if(num_rows==0)//根本没有未读的文件或者文件已经读完了
-       return 0;
+    if (num_rows == 0) // 根本没有未读的文件或者文件已经读完了
+    {
+        msg_back.state = NOFILE;
+        send_data(msg_back, sockfd);
+        return 0;
+    }
     return 1;
 }
 void Person::receiveFile()
@@ -1809,14 +1809,15 @@ void Person::receiveFile()
     if (msg.state == RECEIVEFILE_OK)
     {
         // 先把发给他但是他还没接收的文件传给他
-        if(fileRestore()==0)
+        if(fileRestore())
         {
-            msg_back.state = NOFILE;
-            send_data(msg_back, sockfd);
-            return;
+        msg_back.state = RECEIVEFILE_END;
+        send_data(msg_back, sockfd);
         }
-    
-         // 先查找要收的文件有人给他发没
+    }
+    if (msg.state == OP_OK)
+    {
+        //先查找要收的文件有人给他发没
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select * from filemessage where (filename='%s' and toid='%d' and status ='%d');", msg.filename.c_str(), findId(), 0);
         int ret = mysql_query(mysql, sql_cmd);
@@ -1838,36 +1839,45 @@ void Person::receiveFile()
             send_data(msg_back, sockfd);
             return;
         }
+         
+        // 开始发文件
+        int file = open(msg.filename.c_str(), O_RDONLY);
+        if (file == -1)
+        {
+            std::cerr << "Failed to open file" << std::endl;
+            return;
+        }
+        // 获取文件大小
+        struct stat file_stat;
+        fstat(file, &file_stat);
+        msg_back.filesize = file_stat.st_size; // 获取文件大小
+        msg_back.filename= msg.filename;
+        msg_back.state = OP_OK;
+        send_data(msg_back, sockfd);
+        // 使用 sendfile 发送文件
+        off_t offset = 0;
+        ssize_t bytes_sent = 0;
+        // 循环发送文件
+        while (offset < file_stat.st_size)
+        {
+            bytes_sent = sendfile(sockfd, file, &offset, file_stat.st_size - offset);
+            if (bytes_sent < 0)
+            {
+                std::cerr << "Sendfile error: " << strerror(errno) << "\n";
+                break;
+            }
+            std::cout << "Sent " << bytes_sent << " bytes, total sent: " << offset << " bytes\n";
+        }
+        // 默认他发送成功，将状态由0变为1
+        char sql_cmd3[256];
+        snprintf(sql_cmd3, sizeof(sql_cmd3), "update filemessage set status = '%d' where (filename='%s' and toid='%d' and status ='%d');", 1, msg.filename.c_str(), findId(), 0);
+          ret = mysql_query(mysql, sql_cmd3);
+        if (ret != 0)
+        {
+            std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+        }
+
+        // 关闭文件和 socket
+        close(file);
     }
-
-            // 开始发文件
-            int file = open(msg.filename.c_str(), O_RDONLY);
-            if (file == -1)
-            {
-                std::cerr << "Failed to open file" << std::endl;
-                return;
-            }
-            // 获取文件大小
-            struct stat file_stat;
-            fstat(file, &file_stat);
-            msg_back.filesize = file_stat.st_size; // 获取文件大小
-            msg_back.state=OP_OK;
-            send_data(msg_back, sockfd);
-            // 使用 sendfile 发送文件
-            off_t offset = 0;
-            ssize_t bytes_sent = 0;
-            // 循环发送文件
-            while (offset < file_stat.st_size)
-            {
-                bytes_sent = sendfile(sockfd, file, &offset, file_stat.st_size - offset);
-                if (bytes_sent < 0)
-                {
-                    std::cerr << "Sendfile error: " << strerror(errno) << "\n";
-                    break;
-                }
-                std::cout << "Sent " << bytes_sent << " bytes, total sent: " << offset << " bytes\n";
-            }
-
-            // 关闭文件和 socket
-            close(file);
 }

@@ -48,7 +48,7 @@ public:
     ~ChatServer();
     void run();
     MYSQL *mysql;
-    //  void ynLive(int cfd);
+    void ynLive(int cfd);
 
 private:
     int serverSockfd;
@@ -149,43 +149,43 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 
     return;
 }
-// void ChatServer::ynLive(int cfd)
-// {
-//      int keep_alive = 1;     // 开启TCP心跳机制
-//         int keep_idle = 60;     // 开始首次心跳监测的TCP空闲时间
-//         int keep_interval = 10; // 两次心跳检测的时间
-//         int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
+void ChatServer::ynLive(int cfd)
+{
+     int keep_alive = 1;     // 开启TCP心跳机制
+        int keep_idle =10000;     // 开始首次心跳监测的TCP空闲时间
+        int keep_interval = 10; // 两次心跳检测的时间
+        int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
 
-//         // 开启TCP心跳机制
-//         if (setsockopt(cfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keep_alive, sizeof(keep_alive)) == -1)
-//         {
-//             perror("setsockopt SO_KEEPALIVE");
-//             return;
-//         }
+        // 开启TCP心跳机制
+        if (setsockopt(cfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keep_alive, sizeof(keep_alive)) == -1)
+        {
+            perror("setsockopt SO_KEEPALIVE");
+            return;
+        }
 
-//         // 设置首次心跳检测前的TCP空闭时间
-//         if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keep_idle, sizeof(keep_idle)) == -1)
-//         {
-//             perror("setsockopt TCP_KEEPIDLE");
-//             return;
-//         }
+        // 设置首次心跳检测前的TCP空闭时间
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keep_idle, sizeof(keep_idle)) == -1)
+        {
+            perror("setsockopt TCP_KEEPIDLE");
+            return;
+        }
 
-//         // 设置两次心跳检测的间隔时间
-//         if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keep_interval, sizeof(keep_interval)) == -1)
-//         {
-//             perror("setsockopt TCP_KEEPINTVL");
-//             return;
-//         }
+        // 设置两次心跳检测的间隔时间
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keep_interval, sizeof(keep_interval)) == -1)
+        {
+            perror("setsockopt TCP_KEEPINTVL");
+            return;
+        }
 
-//         // 设置连续心跳检测失败次数后，判定连接失效
-//         if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keep_count, sizeof(keep_count)) == -1)
-//         {
-//             perror("setsockopt TCP_KEEPCNT");
-//             return;
-//         }
+        // 设置连续心跳检测失败次数后，判定连接失效
+        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keep_count, sizeof(keep_count)) == -1)
+        {
+            perror("setsockopt TCP_KEEPCNT");
+            return;
+        }
 
-//         std::cout << "TCP Keepalive 已配置" << std::endl;
-// }
+        std::cout << "TCP Keepalive 已配置" << std::endl;
+}
 void ChatServer::run()
 {
     // pool->init();

@@ -110,6 +110,7 @@ struct protocol {
 #define REQUEST 67//实时有到加好友请求或是群聊请求
 #define SENDFILE_OK 68//发送文件成功
 #define NOFILE 69//没有文件
+#define RECEIVEFILE_END 70//接收文件结束
 
 
 
