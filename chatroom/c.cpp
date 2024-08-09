@@ -75,6 +75,18 @@ int sendfile_f = -1;
 int ynfile_f = -1;
 unsigned long long fsize = 0;
 int id;
+bool isStringNumeric(const std::string &str)
+{
+    for (char c : str)
+    {
+        if (!std::isdigit(c))
+        {
+            return false; // 如果遇到非数字字符，返回false
+        }
+    }
+    return true; // 如果字符串只包含数字，返回true
+}
+
 class ChatClient
 {
 public:
@@ -740,7 +752,7 @@ void *func(void *arg)
                     pthread_cond_signal(&cond_receivefile); // 阻塞等待验证完成
                     pthread_mutex_unlock(&lock_receivefile);
                 }
-                
+
                 if (msgback.state == RECEIVEFILE_END)
                 {
                     cout << "未接收的文件展示完成" << endl;
@@ -784,7 +796,7 @@ void *func(void *arg)
 
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
-                        std::cout << "\r" <<filename << ": " << (int)(((float)total_received / msgback.filesize) * 100)<< "%" << std::endl;
+                        std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
                     }
                     fclose(fp);
                     if (total_received == msgback.filesize)
@@ -830,11 +842,24 @@ void ChatClient::registerUser()
 
 void ChatClient::loginUser()
 { // 登录
+    string ch;
     struct protocol msg;
     msg.cmd = LOGIN;
     cout << "Input your ID: ";
-    cin >> msg.id;
-    id = msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            id = msg.id;
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     cout << "Input your password: ";
     cin >> msg.data;
     send_data(msg, sockfd);
@@ -854,10 +879,23 @@ void ChatClient::loginUser()
 }
 void ChatClient::logoffUser()
 { // 注销
+    string ch;
     struct protocol msg;
     msg.cmd = LOGOFF;
     cout << "Input your ID: ";
-    cin >> msg.id;
+     while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     cout << "Input your password: ";
     cin >> msg.data;
     send_data(msg, sockfd);
@@ -869,10 +907,23 @@ void ChatClient::logoffUser()
 // }
 void ChatClient::addFriend() // 加好友
 {
+    string ch;
     struct protocol msg;
     msg.cmd = ADDFRIEND;
     cout << "Input your friend's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     std::cout << "Enter the message: ";
     std::cin >> msg.data;
     send_data(msg, sockfd);
@@ -884,10 +935,23 @@ void ChatClient::addFriend() // 加好友
 // 屏蔽好友
 void ChatClient::blockFriend()
 {
+    string ch;
     struct protocol msg;
     msg.cmd = BLOCKFRIEND;
     cout << "Input your friend's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_block);
     pthread_cond_wait(&cond_block, &lock_block); // 阻塞等待验证完成
@@ -896,10 +960,23 @@ void ChatClient::blockFriend()
 }
 void ChatClient::deleteFriend() // 删除好友
 {
+    string ch;
     struct protocol msg;
     msg.cmd = DELETEFRIEND;
     cout << "Input your friend's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_delete);
     pthread_cond_wait(&cond_delete, &lock_delete); // 阻塞等待验证完成
@@ -921,21 +998,34 @@ void ChatClient::statusFriend() // 展示好友在线状态
 }
 void ChatClient::privateChat()
 {
+    string ch;
     private_f = -1;
     struct protocol msg;
     msg.cmd = PRIVATECHAT;
     cout << "Input your friend's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     msg.state = CHATFRIENDRECORD_OK;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_msg);
     pthread_cond_wait(&cond_msg, &lock_msg);
     pthread_mutex_unlock(&lock_msg);
     msg.state = OP_OK;
-    printf("[Quit退出聊天]->:");
+    printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
     std::cin >> msg.data;
-    while (strcmp(msg.data.c_str(), "Quit"))
+    while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         if (private_f == 1)
         {
@@ -965,11 +1055,23 @@ void ChatClient::friendNotice() // 好友通知
 }
 void ChatClient::unblockFriend() // 取消屏蔽好友
 {
-
+    string ch;
     struct protocol msg, msgback;
     msg.cmd = UNBLOCKFRIEND;
     cout << "Input you want to unblock friend's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     std::cout << "Enter the message: ";
     std::cin >> msg.data;
     send_data(msg, sockfd);
@@ -980,10 +1082,23 @@ void ChatClient::unblockFriend() // 取消屏蔽好友
 }
 void ChatClient::chatfriendRecord() // 查看好友聊天记录
 {
+    string ch;
     struct protocol msg, msgback;
     msg.cmd = CHATFRIENDRECORD;
     cout << "Input your friend's ID: ";
-    cin >> msg.id;
+     while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_friendrecord);
     pthread_cond_wait(&cond_friendrecord, &lock_friendrecord); // 阻塞等待验证完成
@@ -1014,12 +1129,25 @@ void ChatClient::deleteGroup() // 删除群组
 }
 void ChatClient::removeUser() // 删除用户
 {
+    string ch;
     struct protocol msg;
     msg.cmd = REMOVEUSER;
     cout << "Input you want to remove whitch group's user: ";
     cin >> msg.name;
     cout << "Input you want to remove user's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_removeuser);
     pthread_cond_wait(&cond_removeuser, &lock_removeuser); // 阻塞等待验证完成
@@ -1052,14 +1180,45 @@ void ChatClient::iinGroup() // 查看我所在的群的列表
 }
 void ChatClient::adManager() // 添加删除管理员
 {
+    string ch;
     struct protocol msg;
     msg.cmd = ADMANAGER;
     cout << "Input you want to  group's name: ";
     cin >> msg.name;
     cout << "Input you want to  manager's ID: ";
-    cin >> msg.id;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            msg.id = atoi(ch.c_str());
+            break;
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     cout << "你是想添加还是删除管理员?2添加,3删除";
-    cin >> msg.state;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            if (atoi(ch.c_str()) == 2 || atoi(ch.c_str()) == 3)
+            {
+                msg.state = atoi(ch.c_str());
+                break;
+            }
+            else{
+                cout << "输入有误！！！,请重新输入" << endl;
+            }
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_admanager);
     pthread_cond_wait(&cond_admanager, &lock_admanager); // 阻塞等待验证完成
@@ -1103,10 +1262,10 @@ void ChatClient::groupChat()
     pthread_cond_wait(&cond_groupmsg, &lock_groupmsg);
     pthread_mutex_unlock(&lock_groupmsg);
     msg.state = OP_OK;
-    printf("[Quit退出聊天]->:");
+    printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
     std::cin >> msg.data;
-    while (strcmp(msg.data.c_str(), "Quit"))
+    while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         if (group_f == 1)
             break;
@@ -1176,16 +1335,49 @@ void trueFile(struct protocol msg)
 }
 int ChatClient::sendFile() // 发送文件
 {
+    string ch;
     sendfile_f = -1;
     struct protocol msg;
     msg.cmd = CHECKFILE;
     std::cout << "选择发送文件给1:好友 2:群聊" << std::endl;
     int choice;
-    cin >> choice;
+    cin >> ch;
+    while (1)
+    {
+        cin >> ch;
+        if (isStringNumeric(ch))
+        {
+            choice = atoi(ch.c_str());
+            if (choice == 1 || choice == 2)
+            {
+                break;
+            }
+            else
+            {
+                cout << "输入有误！！！,请重新输入" << endl;
+            }
+        }
+        else
+        {
+            cout << "输入有误！！！,请重新输入" << endl;
+        }
+    }
     if (choice == 1)
     {
         std::cout << "Enter the friend's ID: ";
-        std::cin >> msg.id;
+        while (1)
+        {
+            cin >> ch;
+            if (isStringNumeric(ch))
+            {
+                    msg.id = atoi(ch.c_str());
+                    break;
+            }
+            else
+            {
+                cout << "输入有误！！！,请重新输入" << endl;
+            }
+        }
     }
     else if (choice == 2)
     {
@@ -1207,7 +1399,7 @@ int ChatClient::sendFile() // 发送文件
 }
 void ChatClient::receiveFile() // 接收文件
 {
-      ynfile_f = -1;
+    ynfile_f = -1;
     struct protocol msg;
     // 先打引出未收到的文件
     msg.cmd = RECEIVEFILE;
@@ -1233,27 +1425,37 @@ void ChatClient::receiveFile() // 接收文件
 void ChatClient::displayMenu1()
 {
     int sel = -1;
+    string ch;
     while (sel)
     {
         cout << "\t 1 注册" << endl;
         cout << "\t 2 登录" << endl;
         cout << "\t 3 注销" << endl;
         cout << "\t 0 退出" << endl;
-        cin >> sel;
-        switch (sel)
+        cin >> ch;
+        if (isStringNumeric(ch))
         {
-        case 1:
-            a = 1;
-            registerUser();
-            break;
-        case 2:
-            a = 2;
-            loginUser();
-            break;
-        case 3:
-            a = 3;
-            logoffUser();
-            break;
+            sel = atoi(ch.c_str());
+            switch (sel)
+            {
+            case 1:
+                a = 1;
+                registerUser();
+                break;
+            case 2:
+                a = 2;
+                loginUser();
+                break;
+            case 3:
+                a = 3;
+
+                logoffUser();
+                break;
+            }
+        }
+        else
+        {
+            std::cout << "输入错误，请重新输入" << std::endl;
         }
     }
     return;
@@ -1261,32 +1463,38 @@ void ChatClient::displayMenu1()
 void ChatClient::displayMenu2()
 {
     int sel = -1;
+    string ch;
     while (sel)
     {
         cout << "\t 4 好友管理 " << endl;
         cout << "\t 5 群组管理" << endl;
         cout << "\t 6 文件发送" << endl;
         cout << "\t 25 文件接收" << endl;
-        //  printf("[0]返回上一级页面\n");
-        cin >> sel;
-        // if(sel==0)
-        //     break;
-        switch (sel)
+        cin >> ch;
+        if (isStringNumeric(ch))
         {
-        case 4:
-            displayMenu3();
-            break;
-        case 5:
-            displayMenu4();
-            break;
-        case 6:
-            a = 6;
-            sendFile();
-            break;
-        case 25:
-            a = 25;
-            receiveFile();
-            break;
+            sel = atoi(ch.c_str());
+            switch (sel)
+            {
+            case 4:
+                displayMenu3();
+                break;
+            case 5:
+                displayMenu4();
+                break;
+            case 6:
+                a = 6;
+                sendFile();
+                break;
+            case 25:
+                a = 25;
+                receiveFile();
+                break;
+            }
+        }
+        else
+        {
+            std::cout << "输入错误，请重新输入" << std::endl;
         }
     }
     return;
@@ -1294,6 +1502,7 @@ void ChatClient::displayMenu2()
 void ChatClient::displayMenu3()
 {
     int sel = -1;
+    string ch;
     while (sel)
     {
         cout << "\t 7 添加好友" << endl;
@@ -1305,43 +1514,51 @@ void ChatClient::displayMenu3()
         cout << "\t 13 取消屏蔽好友" << endl;
         cout << "\t 14 查看聊天记录" << endl;
         cout << "\t 0 返回上一级页面" << endl;
-        cin >> sel;
-        if (sel == 0)
-            break;
-        switch (sel)
+        cin >> ch;
+        if (isStringNumeric(ch))
         {
-        case 7:
-            a = 7;
-            addFriend();
-            break;
-        case 8:
-            a = 8;
-            blockFriend();
-            break;
-        case 9:
-            a = 9;
-            deleteFriend();
-            break;
-        case 10:
-            a = 10;
-            statusFriend();
-            break;
-        case 11:
-            a = 11;
-            privateChat();
-            break;
-        case 12:
-            a = 12;
-            friendNotice();
-            break;
-        case 13:
-            a = 13;
-            unblockFriend();
-            break;
-        case 14:
-            a = 14;
-            chatfriendRecord();
-            break;
+            sel = atoi(ch.c_str());
+            if (sel == 0)
+                break;
+            switch (sel)
+            {
+            case 7:
+                a = 7;
+                addFriend();
+                break;
+            case 8:
+                a = 8;
+                blockFriend();
+                break;
+            case 9:
+                a = 9;
+                deleteFriend();
+                break;
+            case 10:
+                a = 10;
+                statusFriend();
+                break;
+            case 11:
+                a = 11;
+                privateChat();
+                break;
+            case 12:
+                a = 12;
+                friendNotice();
+                break;
+            case 13:
+                a = 13;
+                unblockFriend();
+                break;
+            case 14:
+                a = 14;
+                chatfriendRecord();
+                break;
+            }
+        }
+        else
+        {
+            std::cout << "输入错误，请重新输入" << std::endl;
         }
     }
     return;
@@ -1350,6 +1567,7 @@ void ChatClient::displayMenu3()
 void ChatClient::displayMenu4()
 {
     int sel = -1;
+    string ch;
     while (sel)
     {
         cout << "\t 15 建新群 " << endl;
@@ -1364,51 +1582,59 @@ void ChatClient::displayMenu4()
         cout << "\t 24 查看群聊天记录" << endl;
         cout << "\t 0 返回上一级页面" << endl;
 
-        cin >> sel;
-        if (sel == 0)
-            break;
-        switch (sel)
+        cin >> ch;
+        if (isStringNumeric(ch))
         {
-        case 15:
-            a = 15;
-            createGroup();
-            break;
-        case 16:
-            a = 16;
-            deleteGroup();
-            break;
-        case 17:
-            a = 17;
-            removeUser();
-            break;
-        case 18:
-            a = 18;
-            groupList();
-            break;
-        case 19:
-            a = 19;
-            iinGroup();
-            break;
-        case 20:
-            a = 20;
-            adManager();
-            break;
-        case 21:
-            a = 21;
-            applyaddGroup();
-            break;
-        case 22:
-            a = 22;
-            noticeGroup();
-            break;
-        case 23:
-            a = 23;
-            groupChat();
-            break;
-        case 24:
-            a = 24;
-            chatgroupRecord();
-            break;
+            sel = atoi(ch.c_str());
+            if (sel == 0)
+                break;
+            switch (sel)
+            {
+            case 15:
+                a = 15;
+                createGroup();
+                break;
+            case 16:
+                a = 16;
+                deleteGroup();
+                break;
+            case 17:
+                a = 17;
+                removeUser();
+                break;
+            case 18:
+                a = 18;
+                groupList();
+                break;
+            case 19:
+                a = 19;
+                iinGroup();
+                break;
+            case 20:
+                a = 20;
+                adManager();
+                break;
+            case 21:
+                a = 21;
+                applyaddGroup();
+                break;
+            case 22:
+                a = 22;
+                noticeGroup();
+                break;
+            case 23:
+                a = 23;
+                groupChat();
+                break;
+            case 24:
+                a = 24;
+                chatgroupRecord();
+                break;
+            }
+        }
+        else
+        {
+            std::cout << "输入错误，请重新输入" << std::endl;
         }
     }
     return;

@@ -87,7 +87,7 @@ ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollf
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_addr.s_addr = inet_addr("0.0.0.0");
     addr.sin_port = htons(SERVER_PORT);
 
     if (bind(serverSockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)

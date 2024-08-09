@@ -938,12 +938,21 @@ void Person::deleteGroup() // 退出/ 删除群聊//群是否存在,群里是否
         if (groupynMe(findId()))
         {
             msg_back.state = OP_OK;
-            if (groupynMe(findId()) == 1) // 是群主，将群一删
+            if (groupynMe(findId()) == 1) // 是群主，这是新加的，之前没想到，将群一删,将群里面的消息都得一删
             {
+                //从groupdata里面先一删
                 msg_back.cmd = LENDER;
                 char sql_cmd[256];
                 snprintf(sql_cmd, sizeof(sql_cmd), "delete from groupdata where name='%s';", msg.name.c_str());
                 int ret = mysql_query(mysql, sql_cmd);
+                if (ret != 0)
+                {
+                    std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
+                }
+                //在从groupmessage里面一删
+                 char sql_cmd1[256];
+                snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from groupmessage where name='%s';", msg.name.c_str());
+                ret = mysql_query(mysql, sql_cmd1);
                 if (ret != 0)
                 {
                     std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
