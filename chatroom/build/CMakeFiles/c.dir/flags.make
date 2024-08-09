@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/sweet/git/learngit/chatroom
 
-CXX_FLAGS = -g -std=gnu++11
+CXX_FLAGS = -g -std=gnu++17
 

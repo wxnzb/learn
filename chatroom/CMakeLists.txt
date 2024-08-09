@@ -1,11 +1,12 @@
-
 cmake_minimum_required(VERSION 3.10)  # 设置CMake的最低版本要求
 
 project(MyApplication)  # 设置项目名称，这里使用"MyApplication"作为示例
 
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+# 设置C++标准，之前的版本太低，识别不了filesystem
+# set(CMAKE_CXX_STANDARD 11)
+# set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD 17)  
+set(CMAKE_CXX_STANDARD_REQUIRED True)  
 
 # 查找MySQL客户端库
 find_library(MYSQLCLIENT_LIBRARIES NAMES mysqlclient PATHS /usr/lib/x86_64-linux-gnu)
