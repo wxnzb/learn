@@ -311,7 +311,7 @@ int Person::sq_unblockFriend() // 解除屏蔽好友
 void Person::offline()
 {
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "update userdata set status=%d where cfd='%d';", 0, sockfd);
+    snprintf(sql_cmd, sizeof(sql_cmd), "update userdata set status='%d',cfd ='%d' where cfd='%d';", 0, -1, sockfd);
 
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
@@ -1648,7 +1648,6 @@ void Person::sendFile()
         return;
     }
 
-   
     // int original_flags = fcntl(sockfd, F_GETFL, 0);
 
     // if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
@@ -1696,7 +1695,7 @@ void Person::sendFile()
     // msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
     if (msg.id == 0) // 表示是给群发
     {
-        msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
+        msg_back.data = "在群" + msg.name + "发了一个文件" + filename;
         // 先寻找群里的每一个成员
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
@@ -1725,11 +1724,7 @@ void Person::sendFile()
                 continue;
             if (checkUserOnline(atoi(row[0])))
             {
-
-                // msg_back.id = findId();
-                // msg_back.state = REQUEST;
-                //  msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
-                send_data(msg_back, findCfd(msg.id));
+                send_data(msg_back, findCfd(atoi(row[0])));
             }
 
             // 管它再没在线，都要先存起来
@@ -1747,9 +1742,6 @@ void Person::sendFile()
         msg_back.data = "给你发了一个文件" + filename;
         if (checkUserOnline(msg.id))
         {
-            // msg_back.id = findId();
-            // msg_back.state = REQUEST;
-            // msg_back.data = "给你发了一个文件" + filename;
             send_data(msg_back, findCfd(msg.id));
         }
 
@@ -1809,15 +1801,15 @@ void Person::receiveFile()
     if (msg.state == RECEIVEFILE_OK)
     {
         // 先把发给他但是他还没接收的文件传给他
-        if(fileRestore())
+        if (fileRestore())
         {
-        msg_back.state = RECEIVEFILE_END;
-        send_data(msg_back, sockfd);
+            msg_back.state = RECEIVEFILE_END;
+            send_data(msg_back, sockfd);
         }
     }
     if (msg.state == OP_OK)
     {
-        //先查找要收的文件有人给他发没
+        // 先查找要收的文件有人给他发没
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select * from filemessage where (filename='%s' and toid='%d' and status ='%d');", msg.filename.c_str(), findId(), 0);
         int ret = mysql_query(mysql, sql_cmd);
@@ -1839,7 +1831,7 @@ void Person::receiveFile()
             send_data(msg_back, sockfd);
             return;
         }
-         
+
         // 开始发文件
         int file = open(msg.filename.c_str(), O_RDONLY);
         if (file == -1)
@@ -1851,7 +1843,7 @@ void Person::receiveFile()
         struct stat file_stat;
         fstat(file, &file_stat);
         msg_back.filesize = file_stat.st_size; // 获取文件大小
-        msg_back.filename= msg.filename;
+        msg_back.filename = msg.filename;
         msg_back.state = OP_OK;
         send_data(msg_back, sockfd);
         // 使用 sendfile 发送文件
@@ -1871,7 +1863,7 @@ void Person::receiveFile()
         // 默认他发送成功，将状态由0变为1
         char sql_cmd3[256];
         snprintf(sql_cmd3, sizeof(sql_cmd3), "update filemessage set status = '%d' where (filename='%s' and toid='%d' and status ='%d');", 1, msg.filename.c_str(), findId(), 0);
-          ret = mysql_query(mysql, sql_cmd3);
+        ret = mysql_query(mysql, sql_cmd3);
         if (ret != 0)
         {
             std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;

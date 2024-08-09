@@ -244,15 +244,6 @@ void *func(void *arg)
             pthread_cond_signal(&cond_jy); // 阻塞等待验证完成
             pthread_mutex_unlock(&lock_jy);
         }
-        // // 正确处理
-        // if (msgback.state == AGREEFRIENDNEED)
-        // {
-        //     std::cout << "id为" << msgback.id << "同意了你的好友请求" << std::endl;
-        // }
-        // if (msgback.state == REFUSEFRIENDNEED)
-        // {
-        //     std::cout << "id为" << msgback.id << "拒绝了你的好友请求" << std::endl;
-        // }
         if (a == 7) // 加好友//错误判断
         {
             pthread_mutex_lock(&lock_add);
@@ -542,12 +533,12 @@ void *func(void *arg)
         }
         if (a == 18)
         {
-            std::cout << "群聊列表" << std::endl;
+            // std::cout << "群聊列表" << std::endl;
             if (msgback.state == GROUPLIST_OK)
             {
 
                 std::cout << "userid         type" << std::endl;
-                std::cout << msgback.id << "     " << msgback.cmd << std::endl;
+                std::cout << msgback.id << "                           " << msgback.cmd << std::endl;
             }
             else
             {
@@ -562,7 +553,7 @@ void *func(void *arg)
         }
         if (a == 19)
         {
-            std::cout << "查看自己所在的群" << std::endl;
+            // std::cout << "查看自己所在的群" << std::endl;
             if (msgback.state == IINGROUP_OK)
             {
                 std::cout << "name:    " << msgback.name << std::endl;
@@ -584,7 +575,7 @@ void *func(void *arg)
                 if (msgback.state == GROUPNOTPERSON)
                     cout << "你不在群里面" << endl;
                 if (msgback.state == ISNOTLENDER)
-                    cout << "你不是群主，没有权利哦" << endl;
+                    cout << "没有权利哦" << endl;
                 if (msgback.state == GROUPNOTPERSON1)
                     cout << "你要删除的人不在群里面" << endl;
                 if (msgback.state == ISMANAGER)
@@ -793,6 +784,7 @@ void *func(void *arg)
 
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
+                        std::cout << "\r" <<filename << ": " << (int)(((float)total_received / msgback.filesize) * 100)<< "%" << std::endl;
                     }
                     fclose(fp);
                     if (total_received == msgback.filesize)
@@ -1039,6 +1031,7 @@ void ChatClient::groupList() // 查看群组列表
     msg.cmd = GROUPLIST;
     cout << "Input you want to look whitch group's list: " << endl;
     cin >> msg.name;
+    std::cout << "群聊列表" << std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_grouplist);
     pthread_cond_wait(&cond_grouplist, &lock_grouplist); // 阻塞等待验证完成
@@ -1050,6 +1043,7 @@ void ChatClient::iinGroup() // 查看我所在的群的列表
     struct protocol msg, msgback;
     msg.cmd = IINGROUP;
     msg.id = id;
+    std::cout << "你所在的群有" << std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_iingroup);
     pthread_cond_wait(&cond_iingroup, &lock_iingroup); // 阻塞等待验证完成
@@ -1234,51 +1228,6 @@ void ChatClient::receiveFile() // 接收文件
     pthread_mutex_lock(&lock_receivefile);
     pthread_cond_wait(&cond_receivefile, &lock_receivefile); // 阻塞等待验证完成
     pthread_mutex_unlock(&lock_receivefile);
-    // filename = msg.filename + ".client";
-    // FILE *fp = fopen(filename.c_str(), "wb");
-    // if (fp == NULL)
-    // {
-    //     std::cerr << "Failed to open file for writing" << std::endl;
-    //     return;
-    // }
-
-    // int original_flags = fcntl(sockfd, F_GETFL, 0);
-
-    // if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
-    // {
-    //     std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
-    //     fclose(fp);
-    //     return;
-    // }
-    // int len;
-    // char buffer[1024];
-    // off_t total_received = 0;
-    // std::cout << fsize << std::endl;
-    // while (total_received < fsize)
-    // {
-    //     std::cout << total_received << std::endl;
-    //     len = recv(sockfd, buffer, sizeof(buffer), 0);
-    //     if (len <= 0)
-    //     {
-    //         if (len < 0)
-    //         {
-    //             perror("recv");
-    //         }
-    //         return;
-    //     }
-
-    //     fwrite(buffer, 1, len, fp);
-    //     total_received += len;
-    // }
-    // fclose(fp);
-    // if (total_received == fsize)
-    // {
-    //     std::cout << "File received successfully" << std::endl;
-    // }
-    // else
-    // {
-    //     std::cerr << "File size mismatch" << std::endl;
-    // }
     return;
 }
 void ChatClient::displayMenu1()

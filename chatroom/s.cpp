@@ -151,7 +151,7 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 }
 void ChatServer::ynLive(int cfd)
 {
-     int keep_alive = 1;     // 开启TCP心跳机制
+        int keep_alive = 1;     // 开启TCP心跳机制
         int keep_idle =10000;     // 开始首次心跳监测的TCP空闲时间
         int keep_interval = 10; // 两次心跳检测的时间
         int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
