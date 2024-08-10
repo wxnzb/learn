@@ -23,7 +23,6 @@
 const int MAX_CLIENTS = 1024;
 int yepollfd;
 
-
 // 新加的
 // 设置线程睡眠时间
 std::random_device rd; // 真实随机数产生器
@@ -38,7 +37,7 @@ void simulate_hard_computation()
     std::this_thread::sleep_for(std::chrono::milliseconds(2000 + rnd()));
 }
 
-void func(int sockfd,MYSQL *mysql);
+void func(int sockfd, MYSQL *mysql);
 
 class ChatServer
 {
@@ -116,12 +115,11 @@ ChatServer::~ChatServer()
     close(epollfd);
     pool.shutdown(); // 关闭线程池
     mysql_close(mysql);
-    
 }
 void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 {
     int cfd = accept(serverSockfd, nullptr, nullptr);
-  // fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK); // 将他设置成非阻塞,这有大问题
+    // fcntl(cfd, F_SETFL, fcntl(cfd, F_GETFD, 0) | O_NONBLOCK); // 将他设置成非阻塞,这有大问题
 
     struct epoll_event event = {};
     event.events = EPOLLIN | EPOLLET;
@@ -135,7 +133,7 @@ void ChatServer::addepollcfd() // 将客户端的cfd加入epoll
 }
 void ChatServer::messageCfd(int cfd) // 已有连接传来消息
 {
-    //从epoll中删除当前文件描述符
+    // 从epoll中删除当前文件描述符
     struct epoll_event event;
     event.events = EPOLLIN | EPOLLET;
     event.data.fd = cfd;
@@ -145,46 +143,46 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
         perror("Epoll_ctl-DEL failed");
         exit(EXIT_FAILURE);
     }
-    pool.submit(func, cfd,mysql);
+    pool.submit(func, cfd, mysql);
 
     return;
 }
 void ChatServer::ynLive(int cfd)
 {
-        int keep_alive = 1;     // 开启TCP心跳机制
-        int keep_idle =10000;     // 开始首次心跳监测的TCP空闲时间
-        int keep_interval = 10; // 两次心跳检测的时间
-        int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
+    int keep_alive = 1;     // 开启TCP心跳机制
+    int keep_idle = 10000;  // 开始首次心跳监测的TCP空闲时间
+    int keep_interval = 10; // 两次心跳检测的时间
+    int keep_count = 5;     // 连接心跳检测失败次数后，判定连接失效
 
-        // 开启TCP心跳机制
-        if (setsockopt(cfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keep_alive, sizeof(keep_alive)) == -1)
-        {
-            perror("setsockopt SO_KEEPALIVE");
-            return;
-        }
+    // 开启TCP心跳机制
+    if (setsockopt(cfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keep_alive, sizeof(keep_alive)) == -1)
+    {
+        perror("setsockopt SO_KEEPALIVE");
+        return;
+    }
 
-        // 设置首次心跳检测前的TCP空闭时间
-        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keep_idle, sizeof(keep_idle)) == -1)
-        {
-            perror("setsockopt TCP_KEEPIDLE");
-            return;
-        }
+    // 设置首次心跳检测前的TCP空闭时间
+    if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keep_idle, sizeof(keep_idle)) == -1)
+    {
+        perror("setsockopt TCP_KEEPIDLE");
+        return;
+    }
 
-        // 设置两次心跳检测的间隔时间
-        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keep_interval, sizeof(keep_interval)) == -1)
-        {
-            perror("setsockopt TCP_KEEPINTVL");
-            return;
-        }
+    // 设置两次心跳检测的间隔时间
+    if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keep_interval, sizeof(keep_interval)) == -1)
+    {
+        perror("setsockopt TCP_KEEPINTVL");
+        return;
+    }
 
-        // 设置连续心跳检测失败次数后，判定连接失效
-        if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keep_count, sizeof(keep_count)) == -1)
-        {
-            perror("setsockopt TCP_KEEPCNT");
-            return;
-        }
+    // 设置连续心跳检测失败次数后，判定连接失效
+    if (setsockopt(cfd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keep_count, sizeof(keep_count)) == -1)
+    {
+        perror("setsockopt TCP_KEEPCNT");
+        return;
+    }
 
-        std::cout << "TCP Keepalive 已配置" << std::endl;
+    std::cout << "TCP Keepalive 已配置" << std::endl;
 }
 void ChatServer::run()
 {
@@ -197,8 +195,13 @@ void ChatServer::run()
         {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN)))
             {
+
                 std::cout << "哈哈哈哈" << std::endl;
                 fprintf(stderr, "epoll error\n");
+                //新加的，将异常突出的给他改成离线
+                struct protocol msg;
+                Person p1(mysql, msg, events[i].data.fd);
+                p1.offline();
                 close(events[i].data.fd);
                 continue;
             }
@@ -218,10 +221,10 @@ void ChatServer::run()
         }
     }
 }
-void func(int sockfd,MYSQL *mysql) // 新学的知识
+void func(int sockfd, MYSQL *mysql) // 新学的知识
 {
     // MYSQL *mysql=sever.mysql;
-   // 新加的
+    // 新加的
     // simulate_hard_computation();
     std::cout << "new thread" << std::endl;
     // MYSQL *mysql = mysql_init(nullptr);
@@ -336,20 +339,20 @@ void func(int sockfd,MYSQL *mysql) // 新学的知识
       //     std::cerr << "Unknown command." << std::endl;
       //     break;
       //  }
-      //在把他加上
-        struct epoll_event event1= {};
-        event1.events = EPOLLIN;
-        event1.data.fd = sockfd;
+      // 在把他加上
+    struct epoll_event event1 = {};
+    event1.events = EPOLLIN;
+    event1.data.fd = sockfd;
 
-        if (epoll_ctl(yepollfd, EPOLL_CTL_ADD, sockfd, &event1) == -1)
-        {
-            std::cout << "你好像眉山除掉" << std::endl;
-            perror("Epoll_ctl ADD failed");
-        }
-        else
-        {
-            std::cout << "添加成功" << std::endl;
-        }
+    if (epoll_ctl(yepollfd, EPOLL_CTL_ADD, sockfd, &event1) == -1)
+    {
+        std::cout << "你好像眉山除掉" << std::endl;
+        perror("Epoll_ctl ADD failed");
+    }
+    else
+    {
+        std::cout << "添加成功" << std::endl;
+    }
 
     // mysql_close(mysql);
     // close(sockfd);

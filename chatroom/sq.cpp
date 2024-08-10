@@ -30,19 +30,75 @@ int Person::addUser()
     return insert_id;
 }
 // 减人
-int Person::deleteUser()
+int Person::deleteUser() // 要删掉userdata里面的信息,还有friendlist里面的信息,还有他所加的群也要退掉他，如果是群主，则将这个群解散
 {
     std::cout << msg.name << msg.data << std::endl;
-    char sql_cmd[256];
     std::cout << msg.name << msg.data << std::endl;
     std::cout << sockfd << std::endl;
+    // 要删掉userdata里面的信息,
+    char sql_cmd[256];
     snprintf(sql_cmd, sizeof(sql_cmd), "delete from userdata where id='%d';", msg.id);
-
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
     {
         std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
         return -1; // Error indicator
+    }
+    // friendlist里面的信息
+    char sql_cmd1[256];
+    snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from friendlist where (usera='%d' or userb='%d');", msg.id, msg.id);
+    ret = mysql_query(mysql, sql_cmd1);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
+        return -1; // Error indicator
+    }
+    // 他所加的群也要退掉他，如果是群主，则将这个群解散
+    char sql_cmd2[256];
+    snprintf(sql_cmd2, sizeof(sql_cmd2), "select name,type from groupdata where userid='%d';", msg.id);
+    ret = mysql_query(mysql, sql_cmd2);
+    if (ret != 0)
+    {
+        std::cerr << "[ERR] mysql select error: " << mysql_error(mysql) << std::endl;
+    }
+    MYSQL_RES *result = mysql_store_result(mysql);
+    if (result == NULL)
+    {
+        std::cerr << "[ERR] mysql store result error: " << mysql_error(mysql) << std::endl;
+        return -1;
+    }
+
+    int num_rows = mysql_num_rows(result);
+    for (int i = 0; i < num_rows; i++)
+    {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row == NULL)
+        {
+            std::cerr << "[ERR] mysql fetch row error: " << mysql_error(mysql) << std::endl;
+            break;
+        }
+        if (atoi(row[1]) == 1) // 表示他是群主，将这个群一删除
+        {
+            char sql_cmd3[256];
+            snprintf(sql_cmd3, sizeof(sql_cmd3), "delete from groupdata where name='%s';", row[0]);
+            ret = mysql_query(mysql, sql_cmd3);
+            if (ret != 0)
+            {
+                std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
+                return -1; // Error indicator
+            }
+        }
+        else
+        {
+            char sql_cmd4[256];
+            snprintf(sql_cmd4, sizeof(sql_cmd4), "delete from groupdata where id='%d';", msg.id);
+            ret = mysql_query(mysql, sql_cmd4);
+            if (ret != 0)
+            {
+                std::cerr << "[ERR] mysql insert error: " << mysql_error(mysql) << std::endl;
+                return -1; // Error indicator
+            }
+        }
     }
     return 0;
 }
@@ -89,6 +145,7 @@ int Person::findCfd(int id)
 // 是自己
 int Person::isMyself() // msg.id是传过来的好友id，findId是根据cfd对应出来的id
 {
+    std::cout << msg.id << " " << findId() << std::endl;
     if (msg.id == findId())
     {
         return 1;
@@ -474,10 +531,11 @@ void Person::logoffUser()
 
     if (checkUserExists())
     {
-        /*if (checkUserOnline()) {
+        if (checkUserOnline(msg.id))
+        {
             msg_back.state = USER_LOGED;
-        } else */
-        if (checkUserPassword())
+        }
+        else if (checkUserPassword())
         {
             deleteUser();
             msg_back.state = OP_OK;
@@ -547,14 +605,35 @@ void Person::addFriend() // 添加好友//先看好友是否存在，在看是�
         {
             msg_back.state = MYSELF; // 是自己
         }
-        if (isFriend())
+        else if (isFriend())
         {
             msg_back.state = ISFRIEND; // 已经是好友
         }
         else
         {
+            // 在这应该在判断一下，他是否已经给你发过好友申请了，如果已经发过了，就不需要再发了，只需要在好友通知里面同意一下就可以了
+            char sql_cmd[256];
+            snprintf(sql_cmd, sizeof(sql_cmd), "select 1 from datamessage where (inid = '%d' and toid=%d and status=0);", msg.id, findId()); // 查询是否已经发送过好友请求
+
+            int ret = mysql_query(mysql, sql_cmd);
+            if (ret != 0)
+            {
+                std::cerr << "[ERR] mysql query error: " << mysql_error(mysql) << std::endl;
+                return;
+            }
+
+            MYSQL_RES *result = mysql_store_result(mysql);
+            bool exists = (mysql_fetch_row(result) != nullptr);
+            mysql_free_result(result);
+            if(exists)//证明你想加的那个人已经给你发过好友请求了，你只需要同意一下就可以了
+            {
+                msg_back.state = OLDSEND;
+            }
+            else
+            {
             sq_addFriend();
             msg_back.state = OP_OK;
+            }
         }
     }
     else
@@ -940,7 +1019,7 @@ void Person::deleteGroup() // 退出/ 删除群聊//群是否存在,群里是否
             msg_back.state = OP_OK;
             if (groupynMe(findId()) == 1) // 是群主，这是新加的，之前没想到，将群一删,将群里面的消息都得一删
             {
-                //从groupdata里面先一删
+                // 从groupdata里面先一删
                 msg_back.cmd = LENDER;
                 char sql_cmd[256];
                 snprintf(sql_cmd, sizeof(sql_cmd), "delete from groupdata where name='%s';", msg.name.c_str());
@@ -949,8 +1028,8 @@ void Person::deleteGroup() // 退出/ 删除群聊//群是否存在,群里是否
                 {
                     std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
                 }
-                //在从groupmessage里面一删
-                 char sql_cmd1[256];
+                // 在从groupmessage里面一删
+                char sql_cmd1[256];
                 snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from groupmessage where name='%s';", msg.name.c_str());
                 ret = mysql_query(mysql, sql_cmd1);
                 if (ret != 0)

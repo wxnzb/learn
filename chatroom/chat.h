@@ -111,7 +111,7 @@ struct protocol {
 #define SENDFILE_OK 68//发送文件成功
 #define NOFILE 69//没有文件
 #define RECEIVEFILE_END 70//接收文件结束
-
+#define OLDSEND 71//表明你想加的人他先给你已经发了好友申请了
 
 
 

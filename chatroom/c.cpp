@@ -13,6 +13,10 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <termios.h> // 用于termios结构体和tcgetattr、tcsetattr函数
+#include <signal.h>  // 用于signal函数
+#include <unistd.h>  // 用于STDIN_FILENO常量
+
 #include "chat.h"
 #include "json.h"
 #define HOST "127.0.0.1"
@@ -157,7 +161,7 @@ void *func(void *arg)
         }
         if (msgback.state == YNCHAT)
         {
-            std::cout << "你为啥不打印" << std::endl;
+           // std::cout << "你为啥不打印" << std::endl;
             std::cout << msgback.id << ":" << msgback.data << std::endl;
             continue;
         }
@@ -240,10 +244,11 @@ void *func(void *arg)
                 {
                     cout << "用户未注册！" << endl;
                 }
-                /*  if (msgback.state == USER_LOGED) {
-                      cout << "用户已在线！" << endl;
-                  } else*/
-                if (msgback.state == PASSWORD_ERROR)
+                if (msgback.state == USER_LOGED)
+                {
+                    cout << "用户已在线！" << endl;
+                }
+                else if (msgback.state == PASSWORD_ERROR)
                 {
                     cout << "密码错误！" << endl;
                 }
@@ -273,6 +278,10 @@ void *func(void *arg)
                 if (msgback.state == ISFRIEND)
                 {
                     std::cout << "已经是好友了" << std::endl;
+                }
+                if(msgback.state == OLDSEND)
+                {
+                    std::cout << "对方已经发送过好友请求了,你现在只需要在好友通知里面同意就可以了" << std::endl;
                 }
                 if (msgback.state == NOCONTINUE)
                 {
@@ -883,7 +892,7 @@ void ChatClient::logoffUser()
     struct protocol msg;
     msg.cmd = LOGOFF;
     cout << "Input your ID: ";
-     while (1)
+    while (1)
     {
         cin >> ch;
         if (isStringNumeric(ch))
@@ -899,12 +908,11 @@ void ChatClient::logoffUser()
     cout << "Input your password: ";
     cin >> msg.data;
     send_data(msg, sockfd);
+    pthread_mutex_lock(&lock_jy);
+    pthread_cond_wait(&cond_jy, &lock_jy); // 阻塞等待验证完成
+    pthread_mutex_unlock(&lock_jy);
     return;
 }
-// void ChatClient::logoutUser() {
-//     close(sockfd);
-//     login_f = -1;
-// }
 void ChatClient::addFriend() // 加好友
 {
     string ch;
@@ -988,7 +996,7 @@ void ChatClient::statusFriend() // 展示好友在线状态
     struct protocol msg, msgback;
     msg.cmd = STATUSFRIEND;
     //  msg.id = id;
-    std::cout << "好友在线情况,0表示在线，1表示不在线" << std::endl;
+    std::cout << "好友在线情况,0表示不在线，1表示在线" << std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_show);
     pthread_cond_wait(&cond_show, &lock_show);
@@ -1033,7 +1041,7 @@ void ChatClient::privateChat()
         }
         send_data(msg, sockfd);
         std::cout << msg.data << std::endl;
-        std::cin >> msg.data;
+   //     std::cin >> msg.data;
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
@@ -1072,8 +1080,6 @@ void ChatClient::unblockFriend() // 取消屏蔽好友
             cout << "输入有误！！！,请重新输入" << endl;
         }
     }
-    std::cout << "Enter the message: ";
-    std::cin >> msg.data;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_unblock);
     pthread_cond_wait(&cond_unblock, &lock_unblock); // 阻塞等待验证完成
@@ -1086,7 +1092,7 @@ void ChatClient::chatfriendRecord() // 查看好友聊天记录
     struct protocol msg, msgback;
     msg.cmd = CHATFRIENDRECORD;
     cout << "Input your friend's ID: ";
-     while (1)
+    while (1)
     {
         cin >> ch;
         if (isStringNumeric(ch))
@@ -1210,7 +1216,8 @@ void ChatClient::adManager() // 添加删除管理员
                 msg.state = atoi(ch.c_str());
                 break;
             }
-            else{
+            else
+            {
                 cout << "输入有误！！！,请重新输入" << endl;
             }
         }
@@ -1370,8 +1377,8 @@ int ChatClient::sendFile() // 发送文件
             cin >> ch;
             if (isStringNumeric(ch))
             {
-                    msg.id = atoi(ch.c_str());
-                    break;
+                msg.id = atoi(ch.c_str());
+                break;
             }
             else
             {
@@ -1426,12 +1433,11 @@ void ChatClient::displayMenu1()
 {
     int sel = -1;
     string ch;
-    while (sel)
+    while (1)
     {
         cout << "\t 1 注册" << endl;
         cout << "\t 2 登录" << endl;
         cout << "\t 3 注销" << endl;
-        cout << "\t 0 退出" << endl;
         cin >> ch;
         if (isStringNumeric(ch))
         {
@@ -1448,14 +1454,13 @@ void ChatClient::displayMenu1()
                 break;
             case 3:
                 a = 3;
-
                 logoffUser();
                 break;
             }
         }
         else
         {
-            std::cout << "输入错误，请重新输入" << std::endl;
+            std::cout << "输入错误，请输入数字" << std::endl;
         }
     }
     return;
@@ -1464,7 +1469,7 @@ void ChatClient::displayMenu2()
 {
     int sel = -1;
     string ch;
-    while (sel)
+    while (1)
     {
         cout << "\t 4 好友管理 " << endl;
         cout << "\t 5 群组管理" << endl;
@@ -1494,7 +1499,7 @@ void ChatClient::displayMenu2()
         }
         else
         {
-            std::cout << "输入错误，请重新输入" << std::endl;
+            std::cout << "输入错误，请输入数字" << std::endl;
         }
     }
     return;
@@ -1503,7 +1508,7 @@ void ChatClient::displayMenu3()
 {
     int sel = -1;
     string ch;
-    while (sel)
+    while (sel)//前两个一定是while(1),注意，不然如果你输入0，会直接跳出循环，所以这个其实你也可以删了 if (sel == 0) break;这句，只是加上更清晰
     {
         cout << "\t 7 添加好友" << endl;
         cout << "\t 8 屏蔽好友" << endl;
@@ -1558,7 +1563,7 @@ void ChatClient::displayMenu3()
         }
         else
         {
-            std::cout << "输入错误，请重新输入" << std::endl;
+            std::cout << "输入错误，请重新输入数字" << std::endl;
         }
     }
     return;
@@ -1634,7 +1639,7 @@ void ChatClient::displayMenu4()
         }
         else
         {
-            std::cout << "输入错误，请重新输入" << std::endl;
+            std::cout << "输入错误，请重新输入数字" << std::endl;
         }
     }
     return;
@@ -1646,6 +1651,19 @@ void ChatClient::run()
 
 int main(int argc, char **argv)
 {
+    //为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
+    std::cout<<"想出新刷新菜单请按100"<<std::endl;
+    // 禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
+    struct termios term;                      // 用于存储终端的属性
+    tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
+    term.c_cc[VEOF] = _POSIX_VDISABLE;        // 设置文件结束符
+    tcsetattr(STDOUT_FILENO, TCSANOW, &term); // 将修改后的属性应用到终端
+
+    // 禁用ctrl+C ctr+z
+    signal(SIGINT, SIG_IGN);  // c，忽略中断信号（Ctrl+C）
+    signal(SIGTSTP, SIG_IGN); // z，忽略挂起信号（Ctrl+Z）
+    signal(SIGQUIT, SIG_IGN); // \，忽略退出信号（Ctrl+\）
+
     pthread_mutex_init(&lock_jy, NULL);
     pthread_cond_init(&cond_jy, NULL);
     pthread_mutex_init(&lock_login, NULL);
@@ -1696,7 +1714,7 @@ int main(int argc, char **argv)
     ChatClient client(server_addr.c_str(), PORT);
     pthread_t recv_thread;
     pthread_create(&recv_thread, NULL, func, &client.sockfd);
-
+    
     client.run();
     return 0;
 }
