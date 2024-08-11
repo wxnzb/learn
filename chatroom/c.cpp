@@ -69,6 +69,8 @@ pthread_mutex_t lock_groupmsg;
 pthread_cond_t cond_groupmsg;
 pthread_mutex_t lock_receivefile;
 pthread_cond_t cond_receivefile;
+pthread_mutex_t lock_sendfileok;
+pthread_cond_t cond_sendfileok;
 int ssockfd;
 using namespace std;
 int a = 0;
@@ -161,7 +163,7 @@ void *func(void *arg)
         }
         if (msgback.state == YNCHAT)
         {
-           // std::cout << "你为啥不打印" << std::endl;
+            // std::cout << "你为啥不打印" << std::endl;
             std::cout << msgback.id << ":" << msgback.data << std::endl;
             continue;
         }
@@ -189,6 +191,9 @@ void *func(void *arg)
         if (msgback.state == SENDFILE_OK)
         {
             std::cout << "文件发送成功" << std::endl;
+            pthread_mutex_lock(&lock_sendfileok);
+            pthread_cond_signal(&cond_sendfileok);
+            pthread_mutex_unlock(&lock_sendfileok);
             continue;
         }
         if (a == 1) // 注册
@@ -279,7 +284,7 @@ void *func(void *arg)
                 {
                     std::cout << "已经是好友了" << std::endl;
                 }
-                if(msgback.state == OLDSEND)
+                if (msgback.state == OLDSEND)
                 {
                     std::cout << "对方已经发送过好友请求了,你现在只需要在好友通知里面同意就可以了" << std::endl;
                 }
@@ -295,7 +300,7 @@ void *func(void *arg)
         }
         if (a == 8) // 屏蔽好友
         {
-            std::cout << "屏蔽好友" << std::endl;
+            // std::cout << "屏蔽好友" << std::endl;
             pthread_mutex_lock(&lock_block);
             if (msgback.state != OP_OK)
             {
@@ -440,7 +445,7 @@ void *func(void *arg)
         }
         if (a == 13)
         {
-            std::cout << "解除屏蔽好友" << std::endl;
+            // std::cout << "解除屏蔽好友" << std::endl;
             pthread_mutex_lock(&lock_unblock);
             if (msgback.state != OP_OK)
             {
@@ -791,9 +796,10 @@ void *func(void *arg)
                     int len;
                     char buffer[1024];
                     off_t total_received = 0;
+                    unsigned long long cnt=1;
                     while (total_received < msgback.filesize)
                     {
-                        std::cout << total_received << std::endl;
+                      //  std::cout << total_received << std::endl;
                         len = recv(sockfd, buffer, sizeof(buffer), 0);
                         if (len <= 0)
                         {
@@ -805,7 +811,9 @@ void *func(void *arg)
 
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
+                        if(cnt%50000==0)
                         std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
+                        cnt++;
                     }
                     fclose(fp);
                     if (total_received == msgback.filesize)
@@ -1000,6 +1008,7 @@ void ChatClient::statusFriend() // 展示好友在线状态
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_show);
     pthread_cond_wait(&cond_show, &lock_show);
+    std::cout << "展示完毕" << std::endl;
     printf("==================\n");
     pthread_mutex_unlock(&lock_show);
     return;
@@ -1040,8 +1049,8 @@ void ChatClient::privateChat()
             break;
         }
         send_data(msg, sockfd);
-        std::cout << msg.data << std::endl;
-   //     std::cin >> msg.data;
+        //   std::cout << msg.data << std::endl;
+        std::cin >> msg.data;
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
@@ -1277,7 +1286,7 @@ void ChatClient::groupChat()
         if (group_f == 1)
             break;
         send_data(msg, sockfd);
-        std::cout << msg.data << std::endl;
+        // std::cout << msg.data << std::endl;
         std::cin >> msg.data;
     }
     return;
@@ -1348,7 +1357,6 @@ int ChatClient::sendFile() // 发送文件
     msg.cmd = CHECKFILE;
     std::cout << "选择发送文件给1:好友 2:群聊" << std::endl;
     int choice;
-    cin >> ch;
     while (1)
     {
         cin >> ch;
@@ -1399,8 +1407,13 @@ int ChatClient::sendFile() // 发送文件
     if (sendfile_f == 1) // 这可能会存在线程竞争的问题！！
     {
         std::cin >> msg.filename;
-        std::thread thread(trueFile, msg);
-        thread.detach();
+        // 不重新开了
+        //  std::thread thread(trueFile, msg);
+        //  thread.detach();
+        trueFile(msg);
+        pthread_mutex_lock(&lock_sendfileok);
+        pthread_cond_wait(&cond_sendfileok, &lock_sendfileok); // 阻塞等待验证完成
+        pthread_mutex_unlock(&lock_sendfileok);
     }
     return 0;
 }
@@ -1508,7 +1521,7 @@ void ChatClient::displayMenu3()
 {
     int sel = -1;
     string ch;
-    while (sel)//前两个一定是while(1),注意，不然如果你输入0，会直接跳出循环，所以这个其实你也可以删了 if (sel == 0) break;这句，只是加上更清晰
+    while (sel) // 前两个一定是while(1),注意，不然如果你输入0，会直接跳出循环，所以这个其实你也可以删了 if (sel == 0) break;这句，只是加上更清晰
     {
         cout << "\t 7 添加好友" << endl;
         cout << "\t 8 屏蔽好友" << endl;
@@ -1651,8 +1664,8 @@ void ChatClient::run()
 
 int main(int argc, char **argv)
 {
-    //为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
-    std::cout<<"想出新刷新菜单请按100"<<std::endl;
+    // 为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
+    std::cout << "想出新刷新菜单请按100" << std::endl;
     // 禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
     struct termios term;                      // 用于存储终端的属性
     tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
@@ -1706,6 +1719,8 @@ int main(int argc, char **argv)
     pthread_cond_init(&cond_groupmsg, NULL);
     pthread_mutex_init(&lock_receivefile, NULL);
     pthread_cond_init(&cond_receivefile, NULL);
+    pthread_mutex_init(&lock_sendfileok, NULL);
+    pthread_cond_init(&cond_sendfileok, NULL);
     std::string server_addr = "127.0.0.1";
     if (argc >= 2)
     {
@@ -1714,7 +1729,7 @@ int main(int argc, char **argv)
     ChatClient client(server_addr.c_str(), PORT);
     pthread_t recv_thread;
     pthread_create(&recv_thread, NULL, func, &client.sockfd);
-    
+
     client.run();
     return 0;
 }

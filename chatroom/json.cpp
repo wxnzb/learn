@@ -92,7 +92,7 @@ protocol receive_data(int &sockfd)
         p.state = OFFLINE;
         return p;
     }
-    std::cout<<header.length<<std::endl;
+   // std::cout<<header.length<<std::endl;
     // 根据消息头中的长度接收消息体
     std::vector<char> message_body(header.length + 1); // 使用vector避免栈溢出
     int total_body_len = 0;

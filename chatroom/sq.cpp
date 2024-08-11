@@ -178,7 +178,7 @@ int Person::sq_addFriend() // 先看是否数据库有两者的消息，
     // 先判断是否发过请求
     // status=0表示发的请求，1表示同意，2表示拒绝，3表示信息
     char sql_cmd[256];
-    snprintf(sql_cmd, sizeof(sql_cmd), "select * from  datamessage where (inid = %d and  toid = %d);", sender, msg.id);
+    snprintf(sql_cmd, sizeof(sql_cmd), "select status from  datamessage where (inid = %d and  toid = %d);", sender, msg.id);
     int ret = mysql_query(mysql, sql_cmd);
     if (ret != 0)
     {
@@ -189,7 +189,10 @@ int Person::sq_addFriend() // 先看是否数据库有两者的消息，
     MYSQL_ROW row = mysql_fetch_row(result);
     if (row != nullptr) // 表示有
     {
-        msgback.data = "已经发过请求了,等待对方验证";
+        if (atoi(row[0]) == 0)
+            msgback.data = "已经发过请求了,等待对方验证";
+        if (atoi(row[0]) == 2)
+            msgback.data = "对方拒绝了你的请求";
         msgback.state = NOCONTINUE;
         send_data(msgback, sockfd);
         return 0;
@@ -214,7 +217,7 @@ int Person::sq_addFriend() // 先看是否数据库有两者的消息，
         msgback.state = REQUEST;
         send_data(msgback, findCfd(msg.id));
     }
-    return 0;
+    return 1;
 }
 // 屏蔽好友
 int Person::sq_blockFriend() // msg.id是传过来的好友id，findId是根据cfd对应出来的id，设为0表示屏蔽
@@ -613,7 +616,7 @@ void Person::addFriend() // 添加好友//先看好友是否存在，在看是�
         {
             // 在这应该在判断一下，他是否已经给你发过好友申请了，如果已经发过了，就不需要再发了，只需要在好友通知里面同意一下就可以了
             char sql_cmd[256];
-            snprintf(sql_cmd, sizeof(sql_cmd), "select 1 from datamessage where (inid = '%d' and toid=%d and status=0);", msg.id, findId()); // 查询是否已经发送过好友请求
+            snprintf(sql_cmd, sizeof(sql_cmd), "select 1 from datamessage where (inid = '%d' and toid='%d' and status='%d');", msg.id, findId(), 0); // 查询是否已经发送过好友请求
 
             int ret = mysql_query(mysql, sql_cmd);
             if (ret != 0)
@@ -625,14 +628,14 @@ void Person::addFriend() // 添加好友//先看好友是否存在，在看是�
             MYSQL_RES *result = mysql_store_result(mysql);
             bool exists = (mysql_fetch_row(result) != nullptr);
             mysql_free_result(result);
-            if(exists)//证明你想加的那个人已经给你发过好友请求了，你只需要同意一下就可以了
+            if (exists) // 证明你想加的那个人已经给你发过好友请求了，你只需要同意一下就可以了
             {
                 msg_back.state = OLDSEND;
             }
             else
             {
-            sq_addFriend();
-            msg_back.state = OP_OK;
+                if (sq_addFriend())
+                    msg_back.state = OP_OK;
             }
         }
     }
