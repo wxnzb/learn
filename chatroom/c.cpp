@@ -779,7 +779,25 @@ void *func(void *arg)
                     cout << "开始接收文件" << endl;
 
                     std::string filename;
-                    filename = msgback.filename + ".client";
+                    //  filename = msgback.filename + ".client";
+                    std::filesystem::path dirPath = "../client/";
+                    if (!std::filesystem::exists(dirPath))
+                    {
+                        try
+                        {
+                            std::filesystem::create_directories(dirPath);
+                            std::cout << "Directory created successfully" << std::endl;
+                        }
+                        catch (const std::filesystem::filesystem_error &e)
+                        {
+                            std::cerr << "Error creating directory: " << e.what() << std::endl;
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "Directory already exists" << std::endl;
+                    }
+                    filename = dirPath.c_str() + msgback.filename;
                     FILE *fp = fopen(filename.c_str(), "wb");
                     if (fp == NULL)
                     {
@@ -796,10 +814,10 @@ void *func(void *arg)
                     int len;
                     char buffer[1024];
                     off_t total_received = 0;
-                    unsigned long long cnt=1;
+                    unsigned long long cnt = 1;
                     while (total_received < msgback.filesize)
                     {
-                      //  std::cout << total_received << std::endl;
+                        //  std::cout << total_received << std::endl;
                         len = recv(sockfd, buffer, sizeof(buffer), 0);
                         if (len <= 0)
                         {
@@ -811,8 +829,8 @@ void *func(void *arg)
 
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
-                        if(cnt%50000==0)
-                        std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
+                        if (cnt % 50000 == 0)
+                            std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
                         cnt++;
                     }
                     fclose(fp);
@@ -1175,7 +1193,7 @@ void ChatClient::groupList() // 查看群组列表
     cout << "Input you want to look whitch group's list: " << endl;
     cin >> msg.name;
     std::cout << "群聊列表" << std::endl;
-    std::cout<<"1表示群主，2表示管理员，3表示普通成员"<<std::endl;
+    std::cout << "1表示群主，2表示管理员，3表示普通成员" << std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_grouplist);
     pthread_cond_wait(&cond_grouplist, &lock_grouplist); // 阻塞等待验证完成
@@ -1329,6 +1347,10 @@ void trueFile(struct protocol msg)
     fstat(file, &file_stat);
     msg.filesize = file_stat.st_size; // 获取文件大小
     msg.cmd = SENDFILE;
+    // 新加的
+    std::filesystem::path path(msg.filename); // 获取文件名
+    msg.filename = path.filename().string();
+    // 应该就是因为用的是绝对路径的问题
     send_data(msg, ssockfd);
     // 使用 sendfile 发送文件
     off_t offset = 0;
@@ -1342,7 +1364,7 @@ void trueFile(struct protocol msg)
             std::cerr << "Sendfile error: " << strerror(errno) << "\n";
             break;
         }
-        std::cout << "发送的 " << bytes_sent << " 字节"<<std::endl;
+        std::cout << "发送的 " << bytes_sent << " 字节" << std::endl;
     }
 
     // 关闭文件和 socket
@@ -1591,7 +1613,7 @@ void ChatClient::displayMenu4()
     {
         cout << "\t 15 建新群 " << endl;
         cout << "\t 16 退群/解散群" << endl;
-        cout << "\t 17 移除有户" << endl;
+        cout << "\t 17 移除用户" << endl;
         cout << "\t 18 查群列表" << endl;
         cout << "\t 19 查自己所在的群" << endl;
         cout << "\t 20 群主对管理员的增加和删除" << endl;

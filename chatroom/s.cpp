@@ -194,8 +194,8 @@ void ChatServer::run()
         {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN)))
             {
-
-                std::cout << "哈哈哈哈" << std::endl;
+                printf("%d\n",(events[i].events));
+              std::cout << "哈哈哈哈" << std::endl;
                 fprintf(stderr, "epoll error\n");
                 //新加的，将异常突出的给他改成离线
                 struct protocol msg;

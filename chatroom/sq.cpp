@@ -1051,6 +1051,14 @@ void Person::deleteGroup() // 退出/ 删除群聊//群是否存在,群里是否
                 {
                     std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
                 }
+                //还要删除群消息里面的自己，防止出现退出后加不进去的情况
+                char sql_cmd2[256];
+                snprintf(sql_cmd2, sizeof(sql_cmd2), "delete from groupmessage where (inid='%d' and name='%s');", findId(), msg.name.c_str());
+                ret = mysql_query(mysql, sql_cmd2);
+                if (ret != 0)
+                {
+                    std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
+                }
             }
         }
         else
@@ -1082,6 +1090,14 @@ void Person::removeUser() // 先看群是否存在，你和要删除的人是否
                 char sql_cmd[256];
                 snprintf(sql_cmd, sizeof(sql_cmd), "delete from groupdata where (userid='%d' and name='%s');", msg.id, msg.name.c_str());
                 int ret = mysql_query(mysql, sql_cmd);
+                if (ret != 0)
+                {
+                    std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
+                }
+                //新加的，删除了某个人之后，群消息里面也要删除，使得那个人可以继续进群
+                char sql_cmd1[256];
+                snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from groupmessage where (inid='%d' and name='%s');", msg.id, msg.name.c_str());
+                ret = mysql_query(mysql, sql_cmd1);
                 if (ret != 0)
                 {
                     std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
@@ -1731,7 +1747,19 @@ void Person::checkFile() // 先看是给群里发还是给个人发，然后看�
 void Person::sendFile()
 {
     std::string filename;
-    filename = msg.filename + ".sever";
+    //在服务端创建一个,给思路之后丢给chat
+    std::filesystem::path dirPath = "/home/sweet/sever/";
+     if (!std::filesystem::exists(dirPath)) {
+        try {
+            std::filesystem::create_directories(dirPath);
+            std::cout << "Directory created successfully" << std::endl;
+        } catch (const std::filesystem::filesystem_error& e) {
+            std::cerr << "Error creating directory: " << e.what() << std::endl;
+        }
+    } else {
+        std::cout << "Directory already exists" << std::endl;
+    }
+    filename = dirPath.c_str()+ msg.filename;
     FILE *fp = fopen(filename.c_str(), "wb");
     if (fp == NULL)
     {
@@ -1786,7 +1814,7 @@ void Person::sendFile()
     // msg_back.data = "在群“+msg.name+”发了一个文件" + filename;
     if (msg.id == 0) // 表示是给群发
     {
-        msg_back.data = "在群" + msg.name + "发了一个文件" + filename;
+        msg_back.data = "在群" + msg.name + "发了一个文件" + msg.filename;
         // 先寻找群里的每一个成员
         char sql_cmd[256];
         snprintf(sql_cmd, sizeof(sql_cmd), "select userid from groupdata where name='%s';", msg.name.c_str());
@@ -1820,7 +1848,7 @@ void Person::sendFile()
 
             // 管它再没在线，都要先存起来
             char sql_cmd1[256];
-            snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), atoi(row[0]), msg_back.data.c_str(), 0, filename.c_str());
+            snprintf(sql_cmd1, sizeof(sql_cmd1), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), atoi(row[0]), msg_back.data.c_str(), 0, msg.filename.c_str());
             ret = mysql_query(mysql, sql_cmd1);
             if (ret != 0)
             {
@@ -1830,7 +1858,7 @@ void Person::sendFile()
     }
     if (msg.id != 0) // 表示是给好友发
     {
-        msg_back.data = "给你发了一个文件" + filename;
+        msg_back.data = "给你发了一个文件" + msg.filename;
         if (checkUserOnline(msg.id))
         {
             send_data(msg_back, findCfd(msg.id));
@@ -1838,7 +1866,7 @@ void Person::sendFile()
 
         // 管它再没在线，都要先存起来
         char sql_cmd2[256];
-        snprintf(sql_cmd2, sizeof(sql_cmd2), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), msg.id, msg_back.data.c_str(), 0, filename.c_str());
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "insert into filemessage values('%d', '%d', '%s', '%d','%s');", findId(), msg.id, msg_back.data.c_str(), 0, msg.filename.c_str());
         int ret = mysql_query(mysql, sql_cmd2);
         if (ret != 0)
         {
@@ -1922,9 +1950,9 @@ void Person::receiveFile()
             send_data(msg_back, sockfd);
             return;
         }
-
+        std::string filename =  "/home/sweet/sever/"+msg.filename;
         // 开始发文件
-        int file = open(msg.filename.c_str(), O_RDONLY);
+        int file = open(filename.c_str(), O_RDONLY);
         if (file == -1)
         {
             std::cerr << "Failed to open file" << std::endl;
