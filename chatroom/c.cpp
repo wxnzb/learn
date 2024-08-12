@@ -564,7 +564,7 @@ void *func(void *arg)
             {
 
                 std::cout << "userid         type" << std::endl;
-                std::cout << msgback.id << "                           " << msgback.cmd << std::endl;
+                std::cout << msgback.id << "               " << msgback.cmd << std::endl;
             }
             else
             {
@@ -1175,6 +1175,7 @@ void ChatClient::groupList() // 查看群组列表
     cout << "Input you want to look whitch group's list: " << endl;
     cin >> msg.name;
     std::cout << "群聊列表" << std::endl;
+    std::cout<<"1表示群主，2表示管理员，3表示普通成员"<<std::endl;
     send_data(msg, sockfd);
     pthread_mutex_lock(&lock_grouplist);
     pthread_cond_wait(&cond_grouplist, &lock_grouplist); // 阻塞等待验证完成
@@ -1341,7 +1342,7 @@ void trueFile(struct protocol msg)
             std::cerr << "Sendfile error: " << strerror(errno) << "\n";
             break;
         }
-        std::cout << "Sent " << bytes_sent << " bytes, total sent: " << offset << " bytes\n";
+        std::cout << "发送的 " << bytes_sent << " 字节"<<std::endl;
     }
 
     // 关闭文件和 socket

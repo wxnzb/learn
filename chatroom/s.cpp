@@ -88,7 +88,6 @@ ChatServer::ChatServer() : serverSockfd(socket(AF_INET, SOCK_STREAM, 0)), epollf
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr("0.0.0.0");
     addr.sin_port = htons(SERVER_PORT);
-
     if (bind(serverSockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
         perror("Bind failed");
