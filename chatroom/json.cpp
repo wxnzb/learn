@@ -88,7 +88,7 @@ protocol receive_data(int &sockfd)
     // std::cout << "11111 "<< std::endl;
     if (header_len <= 0)
     {
-        std::cout << "你是猪吗ooo" << std::endl;
+       // std::cout << "你是猪吗ooo" << std::endl;
         p.state = OFFLINE;
         return p;
     }
