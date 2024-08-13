@@ -824,7 +824,7 @@ void *func(void *arg)
                     int len;
                     char buffer[10240];
                     off_t total_received = 0;
-                    unsigned long long cnt = 1;
+                    //unsigned long long cnt = 1;
                     while (total_received < msgback.filesize)
                     {
                         //  std::cout << total_received << std::endl;
@@ -839,9 +839,9 @@ void *func(void *arg)
 
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
-                        if (cnt % 50000 == 0)
+                        // if (cnt % 50000 == 0)
                             std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
-                        cnt++;
+                        // cnt++;
                     }
                     fclose(fp);
                     if (total_received == msgback.filesize)
@@ -1382,6 +1382,7 @@ void trueFile(struct protocol msg)
             break;
         }
         std::cout << "发送的 " << bytes_sent << " 字节" << std::endl;
+         std::cout << "\r" << msg.filename << ": " << (int)(((float)offset /  file_stat.st_size) * 100) << "%" << std::endl;
     }
 
     // 关闭文件和 socket
