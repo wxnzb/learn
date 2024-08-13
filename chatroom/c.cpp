@@ -196,7 +196,7 @@ void *func(void *arg)
             pthread_mutex_unlock(&lock_sendfileok);
             continue;
         }
-         if (msgback.state == AGREEGROUP)
+        if (msgback.state == AGREEGROUP)
         {
             std::cout << "id为" << msgback.id << "同意了你的进群请求" << "恭喜你，加入了" << msgback.name << std::endl;
             continue;
@@ -340,7 +340,7 @@ void *func(void *arg)
         }
         if (a == 9) // 删除好友
         {
-           // std::cout << "删除好友" << std::endl;
+            // std::cout << "删除好友" << std::endl;
             pthread_mutex_lock(&lock_delete);
             if (msgback.state != OP_OK)
             {
@@ -1334,6 +1334,7 @@ void ChatClient::chatgroupRecord() // 查看群聊天记录
 }
 void trueFile(struct protocol msg)
 {
+
     // int sfd;
     // struct sockaddr_in server;
     // sfd = socket(PF_INET, SOCK_STREAM, 0);
@@ -1341,11 +1342,11 @@ void trueFile(struct protocol msg)
     // server.sin_addr.s_addr = inet_addr("127.0.0.1");
     // server.sin_port = htons(8888);
     // connect(sfd, (struct sockaddr *)&server, sizeof(server));
-    if (!std::filesystem::exists(msg.filename))
-    {
-        std::cout << "File does not exist" << std::endl;
-        return;
-    }
+    // if(!std::filesystem::exists(msg.filename))
+    // {
+    //     // std::cout << "File does not exist" << std::endl;
+    //     // return;
+    // }
     int file = open(msg.filename.c_str(), O_RDONLY);
     if (file == -1)
     {
@@ -1440,6 +1441,11 @@ int ChatClient::sendFile() // 发送文件
     if (sendfile_f == 1) // 这可能会存在线程竞争的问题！！
     {
         std::cin >> msg.filename;
+        while (!std::filesystem::exists(msg.filename))
+        {
+            std::cout<<"文件不存在哈，请重新输入"<<std::endl;
+             std::cin >> msg.filename;
+        }
         // 不重新开了
         //  std::thread thread(trueFile, msg);
         //  thread.detach();
