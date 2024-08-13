@@ -814,15 +814,15 @@ void *func(void *arg)
                         std::cerr << "Failed to open file for writing" << std::endl;
                     }
 
-                    int original_flags = fcntl(sockfd, F_GETFL, 0);
+                    // int original_flags = fcntl(sockfd, F_GETFL, 0);
 
-                    if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
-                    {
-                        std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
-                        fclose(fp);
-                    }
+                    // if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+                    // {
+                    //     std::cerr << "Failed to set file descriptor to blocking mode: " << strerror(errno) << std::endl;
+                    //     fclose(fp);
+                    // }
                     int len;
-                    char buffer[1024];
+                    char buffer[10240];
                     off_t total_received = 0;
                     unsigned long long cnt = 1;
                     while (total_received < msgback.filesize)
@@ -1051,7 +1051,7 @@ void ChatClient::privateChat()
     while (1)
     {
         cin >> ch;
-    cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         if (isStringNumeric(ch))
         {
             msg.id = atoi(ch.c_str());
@@ -1070,9 +1070,9 @@ void ChatClient::privateChat()
     msg.state = OP_OK;
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
-   // std::cin >> msg.data;
-     getline(std::cin,msg.data);
-  //  std::cout << msg.data << std::endl;
+    // std::cin >> msg.data;
+    getline(std::cin, msg.data);
+    //  std::cout << msg.data << std::endl;
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         if (private_f == 1)
@@ -1081,8 +1081,8 @@ void ChatClient::privateChat()
         }
         send_data(msg, sockfd);
         //   std::cout << msg.data << std::endl;
-        //std::cin >> msg.data;
-        getline(std::cin,msg.data);
+        // std::cin >> msg.data;
+        getline(std::cin, msg.data);
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
@@ -1313,14 +1313,16 @@ void ChatClient::groupChat()
     msg.state = OP_OK;
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
-    std::cin >> msg.data;
+    //  std::cin >> msg.data;
+    getline(std::cin, msg.data);
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         if (group_f == 1)
             break;
         send_data(msg, sockfd);
         // std::cout << msg.data << std::endl;
-        std::cin >> msg.data;
+        //    std::cin >> msg.data;
+        getline(std::cin, msg.data);
     }
     return;
 }
@@ -1447,8 +1449,8 @@ int ChatClient::sendFile() // 发送文件
         std::cin >> msg.filename;
         while (!std::filesystem::exists(msg.filename))
         {
-            std::cout<<"文件不存在哈，请重新输入"<<std::endl;
-             std::cin >> msg.filename;
+            std::cout << "文件不存在哈，请重新输入" << std::endl;
+            std::cin >> msg.filename;
         }
         // 不重新开了
         //  std::thread thread(trueFile, msg);

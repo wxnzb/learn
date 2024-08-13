@@ -1794,7 +1794,7 @@ void Person::sendFile()
     //     return;
     // }
     int len;
-    char buffer[1024];
+    char buffer[10240];
     off_t total_received = 0;
 
     while (total_received < msg.filesize)
