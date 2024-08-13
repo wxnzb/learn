@@ -29,6 +29,7 @@ struct protocol {
     unsigned long long filesize=0;//文件偏移量
  
 };  
+#define RECEIVEOK -4 //为了改变map里面第二个状态
 #define RECEIVEFILE_OK -3 //为了给服务端让他知道是要打印为接收的消息
 #define RECEIVEFILE -2//接收文件
 

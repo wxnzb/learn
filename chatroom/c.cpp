@@ -478,7 +478,7 @@ void *func(void *arg)
             }
             else
             {
-                std::cout << "屏蔽好友成功" << std::endl;
+                std::cout << "解除屏蔽好友成功" << std::endl;
             }
             pthread_cond_signal(&cond_unblock); // 阻塞等待验证完成
             pthread_mutex_unlock(&lock_unblock);
@@ -824,11 +824,11 @@ void *func(void *arg)
                     int len;
                     char buffer[10240];
                     off_t total_received = 0;
-                    //unsigned long long cnt = 1;
+                    // unsigned long long cnt = 1;
                     while (total_received < msgback.filesize)
                     {
                         //  std::cout << total_received << std::endl;
-                        len = recv(sockfd, buffer, sizeof(buffer), 0);
+                        len = recv(sockfd, buffer, (total_received + 10240 > msgback.filesize) ? msgback.filesize - total_received : 10240, 0);
                         if (len <= 0)
                         {
                             if (len < 0)
@@ -840,13 +840,20 @@ void *func(void *arg)
                         fwrite(buffer, 1, len, fp);
                         total_received += len;
                         // if (cnt % 50000 == 0)
-                            std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
+                        // std::cout << "\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::endl;
+                        std::cout << "\33[2K\r" << filename << ": " << (int)(((float)total_received / msgback.filesize) * 100) << "%" << std::flush;
                         // cnt++;
                     }
+                    std::cout << std::endl;
                     fclose(fp);
+                    std::cout << total_received << std::endl;
                     if (total_received == msgback.filesize)
                     {
                         std::cout << "File received successfully" << std::endl;
+                        // 新加的
+                        struct protocol msg;
+                        msg.cmd = RECEIVEOK;
+                        send_data(msg, sockfd);
                     }
                     else
                     {
@@ -1381,9 +1388,10 @@ void trueFile(struct protocol msg)
             std::cerr << "Sendfile error: " << strerror(errno) << "\n";
             break;
         }
-        std::cout << "发送的 " << bytes_sent << " 字节" << std::endl;
-         std::cout << "\r" << msg.filename << ": " << (int)(((float)offset /  file_stat.st_size) * 100) << "%" << std::endl;
+        // std::cout << "发送的 " << bytes_sent << " 字节" << std::endl;
+        std::cout << "\33[2K\r" << msg.filename << ": " << (int)(((float)offset / file_stat.st_size) * 100) << "%" << std::flush;
     }
+    std::cout << std::endl;
 
     // 关闭文件和 socket
     close(file);
@@ -1713,10 +1721,10 @@ int main(int argc, char **argv)
     // 为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
     std::cout << "想出新刷新菜单请按100" << std::endl;
     // 禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
-    struct termios term;                      // 用于存储终端的属性
-    tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
-    term.c_cc[VEOF] = _POSIX_VDISABLE;        // 设置文件结束符
-    tcsetattr(STDOUT_FILENO, TCSANOW, &term); // 将修改后的属性应用到终端
+    // struct termios term;                      // 用于存储终端的属性
+    // tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
+    // term.c_cc[VEOF] = _POSIX_VDISABLE;        // 设置文件结束符
+    // tcsetattr(STDOUT_FILENO, TCSANOW, &term); // 将修改后的属性应用到终端
 
     // 禁用ctrl+C ctr+z
     signal(SIGINT, SIG_IGN);  // c，忽略中断信号（Ctrl+C）

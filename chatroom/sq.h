@@ -3,6 +3,9 @@
 #include <iostream>
 #include "chat.h"
 #include <fstream>
+#include<map>
+#include<vector>
+//std::vector<std::map<int, int>> mang;
 class Person
 {
 public:
@@ -66,8 +69,10 @@ public:
     void sendFile();//发送文件
     int fileRestore();//将没发送的文件传给客户端
     void receiveFile();//接收文件
+    void receiveOk();//接收文件成功
 private:
     MYSQL *mysql;
     struct protocol &msg;
     int sockfd; // 客户端描述符
+    static std::vector<std::map<int, int>> mang; // 将mang声明为全局变量
 };

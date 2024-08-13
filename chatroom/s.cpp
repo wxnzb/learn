@@ -334,6 +334,9 @@ void func(int sockfd, MYSQL *mysql) // 新学的知识
     case RECEIVEFILE:
         person.receiveFile(); // 接收文件
         break;
+    case RECEIVEOK:
+        person.receiveOk(); // 文件接收成功
+        break;
     } // default:
       //     std::cerr << "Unknown command." << std::endl;
       //     break;

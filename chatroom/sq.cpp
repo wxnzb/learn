@@ -2,6 +2,9 @@
 #include <cstring>
 #include "chat.h"
 #include "json.h"
+// 在类定义之外定义并初始化静态成员变量
+std::vector<std::map<int, int>> Person::mang;
+
 Person::Person(MYSQL *Mysql, protocol &Msg, int Sockfd) : mysql(Mysql), msg(Msg), sockfd(Sockfd)
 {
 }
@@ -27,6 +30,7 @@ int Person::addUser()
     }
     int insert_id = mysql_insert_id(mysql); // 获取自动分配的id
     std::cout << "得到自增的自动分配的id为" << insert_id << std::endl;
+
     return insert_id;
 }
 // 减人
@@ -403,6 +407,18 @@ void Person::registerUser()
     msg_back.state = OP_OK;
     // 发给客户端
     send_data(msg_back, sockfd);
+    // 加这个是为了判断服务器是不是在发文件。在发就是1，不发就是0
+    std::map<int, int> map1;
+    map1[msg_back.id] = 0;
+    mang.push_back(map1);
+    for (const auto &group : mang)
+    {
+        for (const auto &pair : group)
+        {
+            std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+        std::cout << std::endl;
+    }
     return;
 }
 
@@ -497,6 +513,16 @@ bool Person::checkUserPassword()
 // 登录
 void Person::loginUser() // 先看用户是否存在，然后看用户是否已经在线，再判断密码是否正确，最后上线
 {
+    // 册的
+    for (const auto &group : mang)
+    {
+        for (const auto &pair : group)
+        {
+            std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+        std::cout << std::endl;
+    }
+
     struct protocol msg_back;
     msg_back.cmd = LOGIN;
 
@@ -788,10 +814,28 @@ void Person::privateChat() // 私聊//好友是否存在，是否是自己，是
                     flag = 0;
                     if (!sq_isBlocked()) // 如果没有屏蔽，直接发给他
                     {
-                        msg_back2.state = YNCHAT;
-                        msg_back2.id = findId(); // 发送者id
-                        msg_back2.data = msg.data;
-                        send_data(msg_back2, findCfd(msg.id)); // 发送消息
+                        // 新加的
+                        for (auto &map : mang)
+                        {
+                            // 遍历每个键值对
+                            for (auto &pair : map)
+                            {
+                                // 如果找到值为5的键
+                                if (pair.first == msg.id)
+                                {
+                                    std::cout << "find" << std::endl;
+                                    // 将其对应的值改为3
+                                    if (pair.second == 0)
+                                    {
+                                        std::cout << "111" << std::endl;
+                                        msg_back2.state = YNCHAT;
+                                        msg_back2.id = findId(); // 发送者id
+                                        msg_back2.data = msg.data;
+                                        send_data(msg_back2, findCfd(msg.id)); // 发送消息
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 else
@@ -1059,7 +1103,7 @@ void Person::deleteGroup() // 退出/ 删除群聊//群是否存在,群里是否
                 {
                     std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
                 }
-                //还要删除群消息里面的自己，防止出现退出后加不进去的情况
+                // 还要删除群消息里面的自己，防止出现退出后加不进去的情况
                 char sql_cmd2[256];
                 snprintf(sql_cmd2, sizeof(sql_cmd2), "delete from groupmessage where (inid='%d' and name='%s');", findId(), msg.name.c_str());
                 ret = mysql_query(mysql, sql_cmd2);
@@ -1102,7 +1146,7 @@ void Person::removeUser() // 先看群是否存在，你和要删除的人是否
                 {
                     std::cerr << "[ERR] MySQL delete error: " << mysql_error(mysql) << std::endl;
                 }
-                //新加的，删除了某个人之后，群消息里面也要删除，使得那个人可以继续进群
+                // 新加的，删除了某个人之后，群消息里面也要删除，使得那个人可以继续进群
                 char sql_cmd1[256];
                 snprintf(sql_cmd1, sizeof(sql_cmd1), "delete from groupmessage where (inid='%d' and name='%s');", msg.id, msg.name.c_str());
                 ret = mysql_query(mysql, sql_cmd1);
@@ -1418,7 +1462,7 @@ int Person::ynacceptGroup()
         msg_back.state = AGREEGROUP;
     }
     else
-    {  //z怎么是datamessage呢，还浅浅发现了一个问题
+    { // z怎么是datamessage呢，还浅浅发现了一个问题
         // char sql_cmd2[256];
         // snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid='%d' and name='%s' and status='%d');", 2, msg.id, msg.name.c_str(), 0); // 拒绝好友请求
         // int ret = mysql_query(mysql, sql_cmd2);
@@ -1435,7 +1479,7 @@ int Person::ynacceptGroup()
             std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
             return false;
         }
-        msg_back.id = findId();           // 同意的那个人的id
+        msg_back.id = findId(); // 同意的那个人的id
         msg_back.name = msg.name;
         msg_back.state = REFUSEGROUP;
     }
@@ -1569,11 +1613,28 @@ int Person::groupChat() // 群聊//看这个群是否存在，你是否在群里
                     {
                         if (checkUserOnline(atoi(row[0]))) // 看用户是否在线
                         {
-                            msg_back.state = YNGROUPCHAT;
-                            msg_back.id = findId();
-                            msg_back.data = msg.data;
-                            msg_back.name = msg.name;
-                            send_data(msg_back, findCfd(atoi(row[0])));
+                            // 新加的
+                            for (auto &map : mang)
+                            {
+                                // 遍历每个键值对
+                                for (auto &pair : map)
+                                {
+                                  
+                                    if (pair.first == atoi(row[0]))
+                                    {
+                                        std::cout << "find" << std::endl;
+                                       
+                                        if (pair.second == 0)
+                                        {
+                                            msg_back.state = YNGROUPCHAT;
+                                            msg_back.id = findId();
+                                            msg_back.data = msg.data;
+                                            msg_back.name = msg.name;
+                                            send_data(msg_back, findCfd(atoi(row[0])));
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1765,19 +1826,25 @@ void Person::checkFile() // 先看是给群里发还是给个人发，然后看�
 void Person::sendFile()
 {
     std::string filename;
-    //在服务端创建一个,给思路之后丢给chat
+    // 在服务端创建一个,给思路之后丢给chat
     std::filesystem::path dirPath = "/home/sweet/sever/";
-     if (!std::filesystem::exists(dirPath)) {
-        try {
+    if (!std::filesystem::exists(dirPath))
+    {
+        try
+        {
             std::filesystem::create_directories(dirPath);
             std::cout << "Directory created successfully" << std::endl;
-        } catch (const std::filesystem::filesystem_error& e) {
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
             std::cerr << "Error creating directory: " << e.what() << std::endl;
         }
-    } else {
+    }
+    else
+    {
         std::cout << "Directory already exists" << std::endl;
     }
-    filename = dirPath.c_str()+ msg.filename;
+    filename = dirPath.c_str() + msg.filename;
     FILE *fp = fopen(filename.c_str(), "wb");
     if (fp == NULL)
     {
@@ -1811,7 +1878,9 @@ void Person::sendFile()
 
         fwrite(buffer, 1, len, fp);
         total_received += len;
+        std::cout << "\33[2K\r" << msg.filename << ": " << (int)(((float)total_received / msg.filesize) * 100) << "%" << std::flush;
     }
+    std::cout << std::endl;
     fclose(fp);
     if (total_received == msg.filesize)
     {
@@ -1968,7 +2037,7 @@ void Person::receiveFile()
             send_data(msg_back, sockfd);
             return;
         }
-        std::string filename =  "/home/sweet/sever/"+msg.filename;
+        std::string filename = "/home/sweet/sever/" + msg.filename;
         // 开始发文件
         int file = open(filename.c_str(), O_RDONLY);
         if (file == -1)
@@ -1976,6 +2045,18 @@ void Person::receiveFile()
             std::cerr << "Failed to open file" << std::endl;
             return;
         }
+        int original_flags = fcntl(sockfd, F_GETFL, 0);
+        if (original_flags == -1)
+        {
+            std::cout << "Failed to get file descriptor flags" << std::endl;
+            return;
+        }
+        if (fcntl(sockfd, F_SETFL, original_flags & ~O_NONBLOCK) == -1)
+        {
+            std::cout << "Failed to set file descriptor to blocking mode" << std::endl;
+            return;
+        }
+
         // 获取文件大小
         struct stat file_stat;
         fstat(file, &file_stat);
@@ -1986,6 +2067,20 @@ void Person::receiveFile()
         // 使用 sendfile 发送文件
         off_t offset = 0;
         ssize_t bytes_sent = 0;
+        // 加这个是为了判断服务器是不是在发文件。在发就是1，不发就是0
+        for (auto &map : mang)
+        {
+            // 遍历每个键值对
+            for (auto &pair : map)
+            {
+                // 如果找到值为5的键
+                if (pair.first == findId())
+                {
+                    // 将其对应的值改为3
+                    pair.second = 1;
+                }
+            }
+        }
         // 循环发送文件
         while (offset < file_stat.st_size)
         {
@@ -1996,8 +2091,11 @@ void Person::receiveFile()
                 break;
             }
             std::cout << "Sent " << bytes_sent << " bytes, total sent: " << offset << " bytes\n";
+            std::cout << "\33[2K\r" << msg.filename << ": " << (int)(((float)offset / file_stat.st_size) * 100) << "%" << std::flush;
         }
-        // 默认他发送成功，将状态由0变为1
+        std::cout << std::endl;
+        // 本来是想把收完放到这，但是发的快收的慢，发完不代表收完
+        //  默认他发送成功，将状态由0变为1
         char sql_cmd3[256];
         snprintf(sql_cmd3, sizeof(sql_cmd3), "update filemessage set status = '%d' where (filename='%s' and toid='%d' and status ='%d');", 1, msg.filename.c_str(), findId(), 0);
         ret = mysql_query(mysql, sql_cmd3);
@@ -2008,5 +2106,19 @@ void Person::receiveFile()
 
         // 关闭文件和 socket
         close(file);
+    }
+}
+void Person::receiveOk()
+{
+    for (auto &map : mang)
+    {
+        for (auto &pair : map)
+        {
+            if (pair.first == findId())
+            {
+                pair.second = 0;
+                std::cout << "hahahah" << std::endl;
+            }
+        }
     }
 }
