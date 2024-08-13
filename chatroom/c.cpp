@@ -1051,6 +1051,7 @@ void ChatClient::privateChat()
     while (1)
     {
         cin >> ch;
+    cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         if (isStringNumeric(ch))
         {
             msg.id = atoi(ch.c_str());
@@ -1069,7 +1070,9 @@ void ChatClient::privateChat()
     msg.state = OP_OK;
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
-    std::cin >> msg.data;
+   // std::cin >> msg.data;
+     getline(std::cin,msg.data);
+  //  std::cout << msg.data << std::endl;
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         if (private_f == 1)
@@ -1078,7 +1081,8 @@ void ChatClient::privateChat()
         }
         send_data(msg, sockfd);
         //   std::cout << msg.data << std::endl;
-        std::cin >> msg.data;
+        //std::cin >> msg.data;
+        getline(std::cin,msg.data);
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
