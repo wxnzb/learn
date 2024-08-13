@@ -196,6 +196,16 @@ void *func(void *arg)
             pthread_mutex_unlock(&lock_sendfileok);
             continue;
         }
+         if (msgback.state == AGREEGROUP)
+        {
+            std::cout << "id为" << msgback.id << "同意了你的进群请求" << "恭喜你，加入了" << msgback.name << std::endl;
+            continue;
+        }
+        if (msgback.state == REFUSEGROUP)
+        {
+            std::cout << "id为" << msgback.id << "拒绝了你的进群请求" << "很遗憾，你没加入" << msgback.name << std::endl;
+            continue;
+        }
         if (a == 1) // 注册
         {
             pthread_mutex_lock(&lock_jy);
@@ -330,7 +340,7 @@ void *func(void *arg)
         }
         if (a == 9) // 删除好友
         {
-            std::cout << "删除好友" << std::endl;
+           // std::cout << "删除好友" << std::endl;
             pthread_mutex_lock(&lock_delete);
             if (msgback.state != OP_OK)
             {
@@ -616,16 +626,16 @@ void *func(void *arg)
             pthread_cond_signal(&cond_admanager); // 阻塞等待验证完成
             pthread_mutex_unlock(&lock_admanager);
         }
-        if (msgback.state == AGREEGROUP)
-        {
-            std::cout << "id为" << msgback.id << "同意了你的进群请求" << "恭喜你，加入了" << msgback.name << std::endl;
-            continue;
-        }
-        if (msgback.state == REFUSEGROUP)
-        {
-            std::cout << "id为" << msgback.id << "拒绝了你的进群请求" << "很遗憾，你没加入" << msgback.name << std::endl;
-            continue;
-        }
+        // if (msgback.state == AGREEGROUP)
+        // {
+        //     std::cout << "id为" << msgback.id << "同意了你的进群请求" << "恭喜你，加入了" << msgback.name << std::endl;
+        //     continue;
+        // }
+        // if (msgback.state == REFUSEGROUP)
+        // {
+        //     std::cout << "id为" << msgback.id << "拒绝了你的进群请求" << "很遗憾，你没加入" << msgback.name << std::endl;
+        //     continue;
+        // }
         if (a == 21)
         {
             pthread_mutex_lock(&lock_applyaddgroup);

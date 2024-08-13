@@ -584,12 +584,20 @@ int Person::ynAccept()
     }
     else
     {
+        // char sql_cmd2[256];
+        // snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid=%d and toid=%d and status=%d);", 2, msg.id, findId(), 0); // 拒绝好友请求
+        // int ret = mysql_query(mysql, sql_cmd2);
+        // if (ret != 0)
+        // {
+        //     std::cerr << "[ERR] mysql updata error: " << mysql_error(mysql) << std::endl;
+        //     return false;
+        // }
         char sql_cmd2[256];
-        snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid=%d and toid=%d and status=%d);", 2, msg.id, findId(), 0); // 拒绝好友请求
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "delete from datamessage where(inid=%d and toid=%d and status=%d);", msg.id, findId(), 0); // 拒绝好友请求
         int ret = mysql_query(mysql, sql_cmd2);
         if (ret != 0)
         {
-            std::cerr << "[ERR] mysql updata error: " << mysql_error(mysql) << std::endl;
+            std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
             return false;
         }
         msg_back.state = REFUSEFRIENDNEED;
@@ -1410,15 +1418,25 @@ int Person::ynacceptGroup()
         msg_back.state = AGREEGROUP;
     }
     else
-    {
+    {  //z怎么是datamessage呢，还浅浅发现了一个问题
+        // char sql_cmd2[256];
+        // snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid='%d' and name='%s' and status='%d');", 2, msg.id, msg.name.c_str(), 0); // 拒绝好友请求
+        // int ret = mysql_query(mysql, sql_cmd2);
+        // if (ret != 0)
+        // {
+        //     std::cerr << "[ERR] mysql updata error: " << mysql_error(mysql) << std::endl;
+        //     return false;
+        // }
         char sql_cmd2[256];
-        snprintf(sql_cmd2, sizeof(sql_cmd2), "update datamessage set status=%d where(inid='%d' and name='%s' and status='%d');", 2, msg.id, msg.name.c_str(), 0); // 拒绝好友请求
+        snprintf(sql_cmd2, sizeof(sql_cmd2), "delete from groupmessage where (inid='%d' and name='%s' and status='%d');", msg.id, msg.name.c_str(), 0); // 拒绝群申请
         int ret = mysql_query(mysql, sql_cmd2);
         if (ret != 0)
         {
-            std::cerr << "[ERR] mysql updata error: " << mysql_error(mysql) << std::endl;
+            std::cerr << "[ERR] mysql delete error: " << mysql_error(mysql) << std::endl;
             return false;
         }
+        msg_back.id = findId();           // 同意的那个人的id
+        msg_back.name = msg.name;
         msg_back.state = REFUSEGROUP;
     }
     if (checkUserOnline(msg.id))
