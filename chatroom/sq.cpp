@@ -310,7 +310,9 @@ int Person::sq_statusFriend(int id)
 // 先将发送的消息存起来
 int Person::sq_restoreFriend()
 {
-    char sql_cmd[256];
+    std::cout<<msg.data<<std::endl;
+    //终于找到mysql为啥存不进去的原因，给设的缓冲区太小了
+    char sql_cmd[10000];
     snprintf(sql_cmd, sizeof(sql_cmd), "insert into datamessage (inid,toid,status,message) values('%d','%d','%d','%s')", findId(), msg.id, 3, msg.data.c_str());
 
     int ret = mysql_query(mysql, sql_cmd);
@@ -1552,7 +1554,7 @@ int Person::groupNotice()
 }
 int Person::sq_restoreGroup()
 {
-    char sql_cmd[256];
+    char sql_cmd[10000];
     snprintf(sql_cmd, sizeof(sql_cmd), "insert into groupmessage (inid,name,status,message) values('%d','%s','%d','%s')", findId(), msg.name.c_str(), 3, msg.data.c_str());
 
     int ret = mysql_query(mysql, sql_cmd);

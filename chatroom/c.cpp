@@ -447,12 +447,12 @@ void *func(void *arg)
             {
                 msg.data = "Y";
             }
-            else if(choice == 'n')
+            else if (choice == 'n')
             {
                 msg.data = "N";
             }
             else
-            continue;
+                continue;
             send_data(msg, sockfd);
         }
         if (a == 13)
@@ -1052,6 +1052,7 @@ void ChatClient::statusFriend() // 展示好友在线状态
 }
 void ChatClient::privateChat()
 {
+    std::cout << "请输入不超过300个字符的内容!! ";
     string ch;
     private_f = -1;
     struct protocol msg;
@@ -1081,17 +1082,25 @@ void ChatClient::privateChat()
     std::cout << "Enter the message: ";
     // std::cin >> msg.data;
     getline(std::cin, msg.data);
-    //  std::cout << msg.data << std::endl;
+   // std::cout << msg.data << std::endl;
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
+        //读的还有问题
+        std::cout<<msg.data.length()<<std::endl;
+        if(msg.data.length() > 4095)
+        {
+            msg.data = msg.data.substr(0, 4095);  
+            std::cout << "输入超出300个字符，已截断为前300个字符。从这之后重输\n";
+            std::cout<<msg.data<<std::endl;
+        }
         if (private_f == 1)
         {
             break;
         }
         send_data(msg, sockfd);
-        //   std::cout << msg.data << std::endl;
-        // std::cin >> msg.data;
         getline(std::cin, msg.data);
+        // std::cout << msg.data << std::endl;
+       
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
@@ -1507,6 +1516,7 @@ void ChatClient::displayMenu1()
         cout << "\t 1 注册" << endl;
         cout << "\t 2 登录" << endl;
         cout << "\t 3 注销" << endl;
+        cout << "\t 0 退出" << endl;
         cin >> ch;
         if (isStringNumeric(ch))
         {
@@ -1524,6 +1534,10 @@ void ChatClient::displayMenu1()
             case 3:
                 a = 3;
                 logoffUser();
+                break;
+            }
+            if (sel == 0)
+            {
                 break;
             }
         }
