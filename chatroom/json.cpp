@@ -66,7 +66,7 @@ void send_data(protocol &p, int sockfd)
     json_obj["filesize"] = p.filesize;
     std::string message_body = json_obj.dump();
 
-    std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
+   // std::cout << "发送的 " << message_body << std::endl; // 打印即将发送的 JSON 字符串
     //std::cout << "发送的人的cfd" << sockfd << std::endl;
     MessageHeader header;
     header.length = message_body.length();
@@ -113,7 +113,7 @@ protocol receive_data(int &sockfd)
     }
     message_body[header.length] = '\0'; // 确保字符串正确结束
     std::string str(message_body.data());
-    std::cout << "收到的 " << str << std::endl;
+   // std::cout << "收到的 " << str << std::endl;
     try
     {
         json json_obj = json::parse(str);

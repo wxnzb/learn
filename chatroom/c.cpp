@@ -438,7 +438,7 @@ void *func(void *arg)
             std::cout << "好友通知" << std::endl;
             struct protocol msg;
             cout << msgback.id << ":" << msgback.data << endl;
-            cout << "你是否同意添加好友？(y/n)";
+            cout << "你是否同意添加好友？(y/n/c)";
             char choice;
             cin >> choice;
             msg.cmd = YNACCEPT;
@@ -447,10 +447,12 @@ void *func(void *arg)
             {
                 msg.data = "Y";
             }
-            else
+            else if(choice == 'n')
             {
                 msg.data = "N";
             }
+            else
+            continue;
             send_data(msg, sockfd);
         }
         if (a == 13)
@@ -1719,7 +1721,7 @@ void ChatClient::run()
 int main(int argc, char **argv)
 {
     // 为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
-    std::cout << "想出新刷新菜单请按100" << std::endl;
+    std::cout << "想重新刷新菜单请按100" << std::endl;
     // 禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
     // struct termios term;                      // 用于存储终端的属性
     // tcgetattr(STDIN_FILENO, &term);           // 获取终端属性

@@ -37,7 +37,7 @@ void simulate_hard_computation()
     std::this_thread::sleep_for(std::chrono::milliseconds(2000 + rnd()));
 }
 
-void func(int sockfd, MYSQL *mysql);
+void func(int sockfd);
 
 class ChatServer
 {
@@ -142,7 +142,7 @@ void ChatServer::messageCfd(int cfd) // 已有连接传来消息
         perror("Epoll_ctl-DEL failed");
         exit(EXIT_FAILURE);
     }
-    pool.submit(func, cfd, mysql);
+    pool.submit(func, cfd);
 
     return;
 }
@@ -220,20 +220,20 @@ void ChatServer::run()
         }
     }
 }
-void func(int sockfd, MYSQL *mysql) // 新学的知识
+void func(int sockfd) // 新学的知识
 {
     // MYSQL *mysql=sever.mysql;
     // 新加的
     // simulate_hard_computation();
     std::cout << "new thread" << std::endl;
-    // MYSQL *mysql = mysql_init(nullptr);
-    // if (mysql == nullptr)
-    // {
-    //     std::cerr << "mysql_init() failed\n";
-    //     return; // 退出或进行其他错误处理
-    // }
+    MYSQL *mysql = mysql_init(nullptr);
+    if (mysql == nullptr)
+    {
+        std::cerr << "mysql_init() failed\n";
+        return; // 退出或进行其他错误处理
+    }
 
-    // mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
+    mysql_real_connect(mysql, HOST, USER, PASSWD, DBNAME, PORT, nullptr, 0);
 
     //    while (1)
     //    {
@@ -356,7 +356,7 @@ void func(int sockfd, MYSQL *mysql) // 新学的知识
         std::cout << "添加成功" << std::endl;
     }
 
-    // mysql_close(mysql);
+    mysql_close(mysql);
     // close(sockfd);
     return;
 }

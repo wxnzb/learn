@@ -121,7 +121,7 @@ public:
     ThreadPool(size_t numThreads);  
     ~ThreadPool();  
     
-    void submit(std::function<void(int, MYSQL*)> task, int arg1, MYSQL* arg2);  
+    void submit(std::function<void(int)> task, int arg1);  
     void shutdown();  
 
 private:  
@@ -166,7 +166,7 @@ ThreadPool::~ThreadPool() {
     shutdown();  
 }  
 
-void ThreadPool::submit(std::function<void(int, MYSQL*)> task, int arg1, MYSQL* arg2) {  
+void ThreadPool::submit(std::function<void(int)> task, int arg1) {  
     {  
         std::unique_lock<std::mutex> lock(queueMutex);  
 
@@ -174,7 +174,7 @@ void ThreadPool::submit(std::function<void(int, MYSQL*)> task, int arg1, MYSQL* 
             throw std::runtime_error("submit on stopped ThreadPool");  
         }  
 
-        tasks.emplace([task, arg1, arg2]() { task(arg1, arg2); });  
+        tasks.emplace([task, arg1]() { task(arg1); });  
     }  
     condition.notify_one();  
 }  

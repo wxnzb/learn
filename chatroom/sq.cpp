@@ -513,16 +513,10 @@ bool Person::checkUserPassword()
 // 登录
 void Person::loginUser() // 先看用户是否存在，然后看用户是否已经在线，再判断密码是否正确，最后上线
 {
-    // 册的
-    for (const auto &group : mang)
-    {
-        for (const auto &pair : group)
-        {
-            std::cout << pair.first << ": " << pair.second << std::endl;
-        }
-        std::cout << std::endl;
-    }
-
+    std::map<int, int> map1;
+    map1[msg.id] = 0;
+    mang.push_back(map1);
+    
     struct protocol msg_back;
     msg_back.cmd = LOGIN;
 
@@ -550,6 +544,14 @@ void Person::loginUser() // 先看用户是否存在，然后看用户是否已�
         msg_back.state = USER_NOT_REGIST;
     }
     send_data(msg_back, sockfd);
+    for (const auto &group : mang)
+    {
+        for (const auto &pair : group)
+        {
+            std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+        std::cout << std::endl;
+    }
 }
 // 注销
 void Person::logoffUser()
