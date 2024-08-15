@@ -310,8 +310,8 @@ int Person::sq_statusFriend(int id)
 // 先将发送的消息存起来
 int Person::sq_restoreFriend()
 {
-    std::cout<<msg.data<<std::endl;
-    //终于找到mysql为啥存不进去的原因，给设的缓冲区太小了
+    std::cout << msg.data << std::endl;
+    // 终于找到mysql为啥存不进去的原因，给设的缓冲区太小了
     char sql_cmd[10000];
     snprintf(sql_cmd, sizeof(sql_cmd), "insert into datamessage (inid,toid,status,message) values('%d','%d','%d','%s')", findId(), msg.id, 3, msg.data.c_str());
 
@@ -383,6 +383,31 @@ void Person::offline()
     if (ret != 0)
     {
         std::cerr << "[ERR] mysql update error: " << mysql_error(mysql) << std::endl;
+    }
+    // 下线之后要把vector里面map对应的id删了，不然如果服务器一直不关，你每次登录一次，都会在把你相同的id加进vector里面，这样发消息的时候，可能给他发了好几次
+    // 新加的
+    for (auto it = mang.begin(); it != mang.end();)
+    {
+        // 遍历每个键值对
+        bool found = false; // 标记是否找到了要删除的元素
+
+        for (auto &pair : *it)
+        {
+            if (pair.first == findId())
+            {
+                found = true; // 找到了匹配的条目
+                break;        // 退出内部循环
+            }
+        }
+
+        if (found)
+        {
+            it = mang.erase(it); // 删除当前元素，并更新迭代器
+        }
+        else
+        {
+            ++it; // 移动到下一个元素
+        }
     }
 }
 // 上线
@@ -518,7 +543,7 @@ void Person::loginUser() // 先看用户是否存在，然后看用户是否已�
     std::map<int, int> map1;
     map1[msg.id] = 0;
     mang.push_back(map1);
-    
+
     struct protocol msg_back;
     msg_back.cmd = LOGIN;
 
@@ -824,14 +849,14 @@ void Person::privateChat() // 私聊//好友是否存在，是否是自己，是
                             // 遍历每个键值对
                             for (auto &pair : map)
                             {
-                                // 如果找到值为5的键
+
                                 if (pair.first == msg.id)
                                 {
                                     std::cout << "find" << std::endl;
-                                    // 将其对应的值改为3
+
                                     if (pair.second == 0)
                                     {
-                                        std::cout << "111" << std::endl;
+
                                         msg_back2.state = YNCHAT;
                                         msg_back2.id = findId(); // 发送者id
                                         msg_back2.data = msg.data;
@@ -1623,11 +1648,11 @@ int Person::groupChat() // 群聊//看这个群是否存在，你是否在群里
                                 // 遍历每个键值对
                                 for (auto &pair : map)
                                 {
-                                  
+
                                     if (pair.first == atoi(row[0]))
                                     {
                                         std::cout << "find" << std::endl;
-                                       
+
                                         if (pair.second == 0)
                                         {
                                             msg_back.state = YNGROUPCHAT;

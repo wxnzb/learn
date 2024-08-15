@@ -1052,7 +1052,7 @@ void ChatClient::statusFriend() // 展示好友在线状态
 }
 void ChatClient::privateChat()
 {
-    std::cout << "请输入不超过300个字符的内容!! ";
+    std::cout << "请输入不超过4095个字符的内容!! ";
     string ch;
     private_f = -1;
     struct protocol msg;
@@ -1080,17 +1080,15 @@ void ChatClient::privateChat()
     msg.state = OP_OK;
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
-    // std::cin >> msg.data;
     getline(std::cin, msg.data);
    // std::cout << msg.data << std::endl;
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         //读的还有问题
         std::cout<<msg.data.length()<<std::endl;
-        if(msg.data.length() > 4095)
+        if(msg.data.length()==4095)
         {
-            msg.data = msg.data.substr(0, 4095);  
-            std::cout << "输入超出300个字符，已截断为前300个字符。从这之后重输\n";
+            std::cout << "输入超出4095个字符，已截断为前4095个字符。从这之后重输\n";
             std::cout<<msg.data<<std::endl;
         }
         if (private_f == 1)
@@ -1318,6 +1316,7 @@ int ChatClient::noticeGroup() // 是否同意同意加群
 // 群聊
 void ChatClient::groupChat()
 {
+    std::cout << "请输入不超过4095个字符的内容!! ";
     group_f = -1;
     struct protocol msg;
     msg.cmd = GROUPCHAT;
@@ -1331,15 +1330,17 @@ void ChatClient::groupChat()
     msg.state = OP_OK;
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
-    //  std::cin >> msg.data;
     getline(std::cin, msg.data);
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
+        if(msg.data.length()==4095)
+        {
+            std::cout << "输入超出4095个字符，已截断为前4095个字符。从这之后重输\n";
+            std::cout<<msg.data<<std::endl;
+        }
         if (group_f == 1)
             break;
         send_data(msg, sockfd);
-        // std::cout << msg.data << std::endl;
-        //    std::cin >> msg.data;
         getline(std::cin, msg.data);
     }
     return;
