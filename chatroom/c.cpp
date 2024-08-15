@@ -1094,7 +1094,7 @@ void ChatClient::privateChat()
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
         // 读的还有问题
-        std::cout << msg.data.length() << std::endl;
+      //  std::cout << msg.data.length() << std::endl;
         if (msg.data.length() == 4095)
         {
             std::cout << "输入超出4095个字符，已截断为前4095个字符。从这之后重输\n";
@@ -1738,14 +1738,14 @@ int main(int argc, char **argv)
 {
     // 为了防止给我发消息的数量太多，导致我想选择的页面被刷新看不见了，想到了一个好方法
     std::cout << "想重新刷新菜单请按100" << std::endl;
-    // 禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
-    // struct termios term;                      // 用于存储终端的属性
-    // tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
-    // term.c_cc[VEOF] = _POSIX_VDISABLE;        // 设置文件结束符
-    // tcsetattr(STDOUT_FILENO, TCSANOW, &term); // 将修改后的属性应用到终端
+    //禁用EOF，防止用户通过EOF（通常是Ctrl+D）来结束输入。
+    struct termios term;                      // 用于存储终端的属性
+    tcgetattr(STDIN_FILENO, &term);           // 获取终端属性
+    term.c_cc[VEOF] = _POSIX_VDISABLE;        // 设置文件结束符
+    tcsetattr(STDOUT_FILENO, TCSANOW, &term); // 将修改后的属性应用到终端
 
     // 禁用ctrl+C ctr+z
-    signal(SIGINT, SIG_IGN);  // c，忽略中断信号（Ctrl+C）
+   // signal(SIGINT, SIG_IGN);  // c，忽略中断信号（Ctrl+C）
     signal(SIGTSTP, SIG_IGN); // z，忽略挂起信号（Ctrl+Z）
     signal(SIGQUIT, SIG_IGN); // \，忽略退出信号（Ctrl+\）
 
