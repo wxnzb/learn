@@ -988,6 +988,9 @@ void ChatClient::addFriend() // 加好友
 // 屏蔽好友
 void ChatClient::blockFriend()
 {
+    a = 10;
+    statusFriend();
+    a = 8;
     string ch;
     struct protocol msg;
     msg.cmd = BLOCKFRIEND;
@@ -1013,6 +1016,9 @@ void ChatClient::blockFriend()
 }
 void ChatClient::deleteFriend() // 删除好友
 {
+    a = 10;
+    statusFriend();
+    a = 9;
     string ch;
     struct protocol msg;
     msg.cmd = DELETEFRIEND;
@@ -1052,6 +1058,9 @@ void ChatClient::statusFriend() // 展示好友在线状态
 }
 void ChatClient::privateChat()
 {
+    a = 10;
+    statusFriend();
+    a = 11;
     std::cout << "请输入不超过4095个字符的内容!! ";
     string ch;
     private_f = -1;
@@ -1081,15 +1090,15 @@ void ChatClient::privateChat()
     printf("[Q或q退出聊天]->:");
     std::cout << "Enter the message: ";
     getline(std::cin, msg.data);
-   // std::cout << msg.data << std::endl;
+    // std::cout << msg.data << std::endl;
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
-        //读的还有问题
-        std::cout<<msg.data.length()<<std::endl;
-        if(msg.data.length()==4095)
+        // 读的还有问题
+        std::cout << msg.data.length() << std::endl;
+        if (msg.data.length() == 4095)
         {
             std::cout << "输入超出4095个字符，已截断为前4095个字符。从这之后重输\n";
-            std::cout<<msg.data<<std::endl;
+            std::cout << msg.data << std::endl;
         }
         if (private_f == 1)
         {
@@ -1098,7 +1107,6 @@ void ChatClient::privateChat()
         send_data(msg, sockfd);
         getline(std::cin, msg.data);
         // std::cout << msg.data << std::endl;
-       
     }
     // pthread_mutex_lock(&lock_msg);
     // pthread_cond_wait(&cond_msg, &lock_msg);
@@ -1120,6 +1128,9 @@ void ChatClient::friendNotice() // 好友通知
 }
 void ChatClient::unblockFriend() // 取消屏蔽好友
 {
+    a = 10;
+    statusFriend();
+    a = 13;
     string ch;
     struct protocol msg, msgback;
     msg.cmd = UNBLOCKFRIEND;
@@ -1333,10 +1344,10 @@ void ChatClient::groupChat()
     getline(std::cin, msg.data);
     while (strcmp(msg.data.c_str(), "Q") && strcmp(msg.data.c_str(), "q"))
     {
-        if(msg.data.length()==4095)
+        if (msg.data.length() == 4095)
         {
             std::cout << "输入超出4095个字符，已截断为前4095个字符。从这之后重输\n";
-            std::cout<<msg.data<<std::endl;
+            std::cout << msg.data << std::endl;
         }
         if (group_f == 1)
             break;
@@ -1348,6 +1359,9 @@ void ChatClient::groupChat()
 
 void ChatClient::chatgroupRecord() // 查看群聊天记录
 {
+    a = 10;
+    statusFriend();
+    a = 14;
     struct protocol msg;
     msg.cmd = GROUPCHATRECORD;
     cout << "Input you want to look whitch group's record: " << endl;
@@ -1359,19 +1373,6 @@ void ChatClient::chatgroupRecord() // 查看群聊天记录
 }
 void trueFile(struct protocol msg)
 {
-
-    // int sfd;
-    // struct sockaddr_in server;
-    // sfd = socket(PF_INET, SOCK_STREAM, 0);
-    // server.sin_family = AF_INET;
-    // server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    // server.sin_port = htons(8888);
-    // connect(sfd, (struct sockaddr *)&server, sizeof(server));
-    // if(!std::filesystem::exists(msg.filename))
-    // {
-    //     // std::cout << "File does not exist" << std::endl;
-    //     // return;
-    // }
     int file = open(msg.filename.c_str(), O_RDONLY);
     if (file == -1)
     {
